@@ -1,0 +1,36 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 30000,
+});
+
+// Attach JWT from localStorage
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 -> clear session and redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+export function errorMessage(err, fallback = 'เกิดข้อผิดพลาด กรุณาลองใหม่') {
+  return err?.response?.data?.message || err?.message || fallback;
+}
+
+export default api;

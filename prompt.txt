@@ -1,0 +1,301 @@
+คุณคือ Senior Full Stack Developer และ System Architect
+
+สร้างระบบจับสลากและวงล้อสุ่มรายชื่อผ่าน LINE Official Account (LINE OA) โดยใช้สถาปัตยกรรมดังนี้
+
+LINE OA
+↓
+Messaging API
+↓
+Node.js (Express)
+↓
+MySQL
+↓
+Admin Dashboard (Web)
+
+วัตถุประสงค์:
+สร้างระบบสำหรับใช้งานใน LINE Group ที่มีอยู่แล้ว โดยให้ LINE OA ถูกเชิญเข้ากลุ่มและทำงานเป็น Bot
+
+====================
+TECH STACK
+====================
+
+Backend:
+- Node.js
+- Express.js
+- LINE Messaging API SDK
+- Sequelize ORM
+- JWT Authentication
+- REST API
+
+Database:
+- MySQL 8
+
+Frontend:
+- React
+- Vite
+- TailwindCSS
+- Axios
+- Chart.js
+
+Deployment:
+- Docker
+- Docker Compose
+- Nginx Reverse Proxy
+
+====================
+FEATURES
+====================
+
+1. LINE BOT
+
+เมื่อ OA ถูกเชิญเข้า Group
+
+Bot ต้องสามารถ
+
+- ตอบข้อความอัตโนมัติ
+- สมัครเข้าร่วมกิจกรรม
+- ถอนตัว
+- ดูรายชื่อ
+- หมุนวงล้อ
+- ดูประวัติผู้โชคดี
+
+คำสั่ง:
+
+สมัคร
+ถอนตัว
+รายชื่อ
+หมุนวงล้อ
+ประวัติ
+ช่วยเหลือ
+
+====================
+2. PARTICIPANT MANAGEMENT
+====================
+
+สร้างตาราง
+
+participants
+
+ประกอบด้วย
+
+id
+group_id
+user_id
+display_name
+created_at
+
+เมื่อสมาชิกพิมพ์
+
+สมัคร
+
+ระบบต้อง
+
+- ดึงชื่อ LINE Profile
+- บันทึกฐานข้อมูล
+- ป้องกันสมัครซ้ำ
+
+====================
+3. WHEEL SYSTEM
+====================
+
+สร้าง Engine สำหรับสุ่มรายชื่อ
+
+เงื่อนไข
+
+- สุ่มแบบ Fair Random
+- สมาชิกทุกคนมีโอกาสเท่ากัน
+- รองรับผู้เข้าร่วม 10,000 คน
+
+เมื่อพิมพ์
+
+หมุนวงล้อ
+
+ให้ระบบ
+
+- แสดง Animation กำลังสุ่ม
+- สุ่มผู้ชนะ
+- บันทึกประวัติ
+- ส่งข้อความ Flex Message
+
+ตัวอย่าง
+
+🎯 กำลังหมุนวงล้อ...
+
+🏆 ผู้โชคดีคือ
+
+สมชาย ใจดี
+
+====================
+4. WINNER HISTORY
+====================
+
+สร้างตาราง
+
+winners
+
+id
+group_id
+winner_user_id
+winner_name
+draw_time
+
+สามารถ
+
+- ดูย้อนหลัง
+- ค้นหาผู้ชนะ
+- Export Excel
+
+====================
+5. ADMIN DASHBOARD
+====================
+
+สร้าง Dashboard สำหรับ Admin
+
+เมนู
+
+Dashboard
+Participants
+Draw Wheel
+Winner History
+Groups
+Settings
+
+Dashboard ต้องแสดง
+
+- จำนวนสมาชิกทั้งหมด
+- จำนวนกิจกรรม
+- จำนวนผู้ชนะ
+- กราฟรายวัน
+
+====================
+6. WHEEL PAGE
+====================
+
+สร้างหน้าเว็บวงล้อ
+
+ใช้
+
+HTML5 Canvas
+
+หรือ
+
+Winwheel.js
+
+ต้องมี
+
+- Effect หมุนจริง
+- เสียงหมุน
+- แสดงรายชื่อบนวงล้อ
+- ปุ่ม Spin
+
+====================
+7. LINE FLEX MESSAGE
+====================
+
+เมื่อจับรางวัลเสร็จ
+
+ส่ง Flex Message
+
+แสดง
+
+- รูปถ้วยรางวัล
+- ชื่อผู้ชนะ
+- วันที่เวลา
+- ปุ่มดูประวัติ
+
+====================
+8. SECURITY
+====================
+
+- JWT Authentication
+- Role Based Access Control
+- Admin
+- Super Admin
+
+เข้ารหัส Password ด้วย bcrypt
+
+ป้องกัน
+
+- SQL Injection
+- XSS
+- CSRF
+
+====================
+9. DATABASE DESIGN
+====================
+
+ออกแบบ ER Diagram
+
+พร้อม
+
+- Relationships
+- Primary Key
+- Foreign Key
+- Indexes
+
+====================
+10. API DOCUMENTATION
+====================
+
+สร้าง REST API
+
+ตัวอย่าง
+
+POST /api/participants/register
+
+POST /api/wheel/spin
+
+GET /api/winners
+
+GET /api/dashboard
+
+พร้อม Request/Response Example
+
+====================
+11. DOCKER
+====================
+
+สร้าง
+
+Dockerfile
+
+docker-compose.yml
+
+ประกอบด้วย
+
+- frontend
+- backend
+- mysql
+- nginx
+
+====================
+12. PROJECT STRUCTURE
+====================
+
+สร้างโครงสร้างโปรเจกต์ครบทั้งหมด
+
+/backend
+/frontend
+/database
+/docker
+
+====================
+13. OUTPUT
+====================
+
+ตอบกลับเป็น
+
+1. System Architecture Diagram
+2. Database Schema
+3. Folder Structure
+4. Backend Source Code
+5. Frontend Source Code
+6. API Documentation
+7. Docker Configuration
+8. Deployment Guide
+9. LINE Developer Setting Guide
+10. Production Best Practices
+
+เขียนโค้ดพร้อมใช้งานระดับ Production
+แยกไฟล์ทุกไฟล์อย่างครบถ้วน
+ไม่ใช้ Mock Data

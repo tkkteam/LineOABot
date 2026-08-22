@@ -1,0 +1,83 @@
+# ============================================================
+# LINE Lottery & Wheel Spin System - Docker Compose
+#
+# Services: nginx (reverse proxy) -> frontend (React SPA)
+#                                   -> backend (Node/Express)
+#           mysql (database)
+#
+# Usage:
+#   cp .env.example .env   # then fill in real values
+#   docker compose up -d --build
+# ============================================================
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: line-lottery-mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change_me_strong_root_password}
+      MYSQL_DATABASE: ${DB_NAME:-line_lottery}
+      MYSQL_USER: ${DB_USER:-line_lottery}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change_me_strong_db_password}
+      TZ: ${TZ:-Asia/Bangkok}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - line-lottery-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: line-lottery-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      PORT: 3000
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - line-lottery-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: line-lottery-frontend
+    restart: unless-stopped
+    networks:
+      - line-lottery-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: line-lottery-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - line-lottery-net
+
+networks:
+  line-lottery-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
