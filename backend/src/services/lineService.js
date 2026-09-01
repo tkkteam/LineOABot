@@ -278,23 +278,27 @@ async function handleSlipImage(event) {
     // ตรวจสอบสลิปด้วย SlipOK API
     if (config.slipok && config.slipok.branchId && config.slipok.apiKey) {
       try {
-        const formData = new FormData();
-        formData.append('files', fs.createReadStream(filePath));
+        const buffer = fs.readFileSync(filePath);
 
         await axios.post(
           `https://api.slipok.com/api/line/apikey/${config.slipok.branchId}`,
-          formData,
+          {
+            files: buffer
+          },
           {
             headers: {
               'x-authorization': config.slipok.apiKey,
-              ...formData.getHeaders(),
-            },
+              'Content-Type': 'multipart/form-data',
+            }
           }
         );
         logger.info('[slip] SlipOK verification passed', { userId });
       } catch (err) {
         // หาก API แจ้งว่าไม่ใช่สลิป หรือสลิปไม่ถูกต้อง ให้หยุดการทำงาน (ไม่ตอบกลับใดๆ)
-        logger.info('[slip] SlipOK verification failed or not a slip', { userId });
+        const slipError = err.response?.data || err.message;
+        logger.error('[slip] SlipOK verification failed', { userId, slipError });
+        // ชั่วคราว: ตอบกลับ error เพื่อให้แอดมินเห็นว่าเกิดอะไรขึ้น
+        await replyText(replyToken, `❌ SlipOK Error: ${JSON.stringify(slipError)}`);
         return; 
       }
     } else {
