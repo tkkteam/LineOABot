@@ -59,3 +59,53 @@ export async function participantStats(req, res, next) {
     return next(err);
   }
 }
+
+/** POST /api/participants */
+export async function addManualParticipant(req, res, next) {
+  try {
+    const { group_id, display_name } = req.body;
+    if (!group_id || !display_name) {
+      throw new ApiError(400, 'Missing group_id or display_name');
+    }
+
+    const group = await Group.findByPk(group_id);
+    if (!group) {
+      throw new ApiError(404, 'Group not found');
+    }
+
+    // Generate a mock line user id for manual adds
+    const mockUserId = `manual_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+    const participant = await Participant.create({
+      group_id: group.id,
+      user_id: mockUserId,
+      display_name: cleanStr(display_name, 255),
+      is_group_admin: false,
+    });
+
+    return ok(res, participant, 'Participant added successfully');
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** PUT /api/participants/:id/admin */
+export async function toggleGroupAdmin(req, res, next) {
+  try {
+    const participant = await Participant.findByPk(req.params.id);
+    if (!participant) {
+      throw new ApiError(404, 'Participant not found');
+    }
+
+    // If making someone admin, we should optionally remove admin from others?
+    // Wait, multiple admins are fine according to lineService logic (just first one gets it initially).
+    // Let's just toggle the flag.
+    participant.is_group_admin = !participant.is_group_admin;
+    await participant.save();
+
+    return ok(res, participant, `Admin status updated to ${participant.is_group_admin}`);
+  } catch (err) {
+    return next(err);
+  }
+}
+

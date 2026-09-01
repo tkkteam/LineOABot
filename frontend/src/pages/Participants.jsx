@@ -12,6 +12,12 @@ export default function Participants() {
   const [filterGroup, setFilterGroup] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  // Add Manual State
+  const [newName, setNewName] = useState('');
+  const [newGroupId, setNewGroupId] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -51,6 +57,37 @@ export default function Participants() {
     }
   };
 
+  const handleToggleAdmin = async (id) => {
+    try {
+      await api.put(`/participants/${id}/admin`);
+      fetchData();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleAddManual = async (e) => {
+    e.preventDefault();
+    if (!newGroupId || !newName.trim()) return;
+    
+    setAddBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await api.post('/participants', {
+        group_id: newGroupId,
+        display_name: newName.trim(),
+      });
+      setNewName('');
+      setNotice('เพิ่มรายชื่อสำเร็จ');
+      fetchData();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -58,8 +95,49 @@ export default function Participants() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">Participants</h1>
         <p className="text-sm text-slate-500">
-          ผู้เข้าร่วมทั้งหมด {total} คน · สมัครผ่าน LINE ด้วยคำสั่ง <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">สมัคร</span>
+          ผู้เข้าร่วมทั้งหมด {total} คน · สมัครผ่าน LINE หรือเพิ่มแบบ Manual
         </p>
+      </div>
+
+      {error && <div className="card !border-red-200 bg-red-50 text-sm text-red-700">{error}</div>}
+      {notice && <div className="card !border-emerald-200 bg-emerald-50 text-sm text-emerald-700">{notice}</div>}
+
+      {/* Add Manual Form */}
+      <div className="card">
+        <h2 className="mb-4 font-semibold text-slate-900">➕ เพิ่มรายชื่อเอง (Manual)</h2>
+        <form onSubmit={handleAddManual} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="label">เลือกกลุ่ม</label>
+            <select
+              className="input"
+              value={newGroupId}
+              onChange={(e) => setNewGroupId(e.target.value)}
+              required
+            >
+              <option value="">-- เลือกกลุ่ม --</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name || g.line_group_id}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="label">ชื่อผู้เข้าร่วม</label>
+            <input
+              className="input"
+              placeholder="พิมพ์ชื่อ..."
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="sm:w-32">
+            <button type="submit" disabled={addBusy} className="btn-primary w-full">
+              {addBusy ? 'รอสักครู่...' : 'เพิ่ม'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Filters */}
@@ -90,8 +168,6 @@ export default function Participants() {
         </select>
       </div>
 
-      {error && <div className="card !border-red-200 bg-red-50 text-sm text-red-700">{error}</div>}
-
       <div className="card !p-0 overflow-hidden">
         {loading ? (
           <div className="flex h-48 items-center justify-center">
@@ -108,7 +184,7 @@ export default function Participants() {
                   <th className="table-th">LINE User ID</th>
                   <th className="table-th">บทบาท</th>
                   <th className="table-th">สมัครเมื่อ</th>
-                  <th className="table-th">จัดการ</th>
+                  <th className="table-th text-right">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -135,7 +211,10 @@ export default function Participants() {
                     <td className="table-td text-xs text-slate-500">
                       {new Date(p.created_at).toLocaleString('th-TH')}
                     </td>
-                    <td className="table-td">
+                    <td className="table-td text-right space-x-3">
+                      <button onClick={() => handleToggleAdmin(p.id)} className="text-xs text-brand-600 hover:underline">
+                        {p.is_group_admin ? 'ปลดผู้ดูแล' : 'ตั้งเป็นผู้ดูแล'}
+                      </button>
                       <button onClick={() => handleDelete(p.id, p.display_name)} className="text-xs text-red-600 hover:underline">
                         ลบ
                       </button>

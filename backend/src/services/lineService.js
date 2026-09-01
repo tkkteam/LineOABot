@@ -7,6 +7,8 @@ import { logger } from '../utils/logger.js';
 import axios from 'axios';
 import FormData from 'form-data';
 import config from '../config/index.js';
+import fs from 'fs';
+import path from 'path';
 
 const HELP_TEXT = [
   '🤖 ระบบจับสลากและวงล้อสุ่มรายชื่อ',
@@ -222,10 +224,11 @@ async function handleHistory(event) {
 }
 
 async function handleSlipImage(event) {
-  const { replyToken, source } = event;
+  const { replyToken, source, message } = event;
   try {
     const userId = source.userId;
     const groupId = source.groupId;
+    const messageId = message.id;
     
     // ดึงชื่อผู้ใช้จาก LINE
     let displayName = 'ผู้ใช้งาน';
@@ -239,6 +242,37 @@ async function handleSlipImage(event) {
       }
     } catch (e) {
       logger.warn('[line] could not fetch profile for slip', { userId, groupId });
+    }
+
+    // สร้างโฟลเดอร์สำหรับเก็บสลิปแยกต่างหาก (ถ้ายังไม่มี)
+    const slipsDir = path.join(process.cwd(), 'uploads', 'slips');
+    if (!fs.existsSync(slipsDir)) {
+      fs.mkdirSync(slipsDir, { recursive: true });
+    }
+
+    // ดาวน์โหลดรูปภาพสลิปจาก LINE
+    try {
+      const response = await axios({
+        method: 'get',
+        url: `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+        headers: {
+          Authorization: `Bearer ${config.line.channelAccessToken}`
+        },
+        responseType: 'stream'
+      });
+
+      const fileName = `${Date.now()}_${userId}.jpg`;
+      const filePath = path.join(slipsDir, fileName);
+      const writer = fs.createWriteStream(filePath);
+      
+      response.data.pipe(writer);
+      await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      });
+      logger.info(`[slip] Saved slip image to ${filePath}`);
+    } catch (downloadErr) {
+      logger.error('[slip] Failed to download slip image', { message: downloadErr.message });
     }
 
     // สร้าง Flex Message ตอบกลับง่ายๆ แบบไม่ต้องพึ่ง API
