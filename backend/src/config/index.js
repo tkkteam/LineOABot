@@ -44,6 +44,11 @@ const config = {
     username: process.env.ADMIN_USERNAME || 'admin',
     password: process.env.ADMIN_PASSWORD || 'admin123',
   },
+
+  slipok: {
+    branchId: process.env.SLIPOK_BRANCH_ID || '',
+    apiKey: process.env.SLIPOK_API_KEY || '',
+  }
 };
 
 export default config;

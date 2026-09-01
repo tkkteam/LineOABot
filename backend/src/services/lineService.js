@@ -275,7 +275,34 @@ async function handleSlipImage(event) {
       logger.error('[slip] Failed to download slip image', { message: downloadErr.message });
     }
 
-    // สร้าง Flex Message ตอบกลับง่ายๆ แบบไม่ต้องพึ่ง API
+    // ตรวจสอบสลิปด้วย SlipOK API
+    if (config.slipok && config.slipok.branchId && config.slipok.apiKey) {
+      try {
+        const formData = new FormData();
+        formData.append('files', fs.createReadStream(filePath));
+
+        await axios.post(
+          `https://api.slipok.com/api/line/apikey/${config.slipok.branchId}`,
+          formData,
+          {
+            headers: {
+              'x-authorization': config.slipok.apiKey,
+              ...formData.getHeaders(),
+            },
+          }
+        );
+        logger.info('[slip] SlipOK verification passed', { userId });
+      } catch (err) {
+        // หาก API แจ้งว่าไม่ใช่สลิป หรือสลิปไม่ถูกต้อง ให้หยุดการทำงาน (ไม่ตอบกลับใดๆ)
+        logger.info('[slip] SlipOK verification failed or not a slip', { userId });
+        return; 
+      }
+    } else {
+      // หากยังไม่ได้ใส่ API Key ของ SlipOK บอทจะไม่รู้ว่ารูปไหนคือสลิป 
+      // ระบบจะอนุโลมตอบกลับทุกรูปไปก่อนจนกว่าจะใส่ API Key (หรือถ้าอยากให้เงียบไปเลย สามารถมาแก้โค้ดตรงนี้ให้ return; ได้ครับ)
+    }
+
+    // สร้าง Flex Message ตอบกลับเมื่อตรวจสอบสลิปผ่านแล้ว
     const flexMessage = {
       type: 'flex',
       altText: `ได้รับแจ้งโอนเงินจากคุณ ${displayName} แล้ว`,
