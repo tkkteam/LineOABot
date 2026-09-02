@@ -287,6 +287,7 @@ async function handleSlipImage(event) {
     }
 
     let slipData = null;
+    let buildReceiptFlex;
 
     // ตรวจสอบสลิปด้วย SlipOK API
     if (config.slipok && config.slipok.branchId && config.slipok.apiKey) {
@@ -312,7 +313,7 @@ async function handleSlipImage(event) {
           return banks[code] || code || 'บัญชีธนาคาร/พร้อมเพย์';
         };
 
-        const buildReceiptFlex = (isWarning) => {
+        buildReceiptFlex = (isWarning) => {
           const color = isWarning ? '#FF9800' : '#1DB446';
           const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ แจ้งโอนเงินสำเร็จ';
           
