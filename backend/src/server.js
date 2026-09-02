@@ -9,7 +9,7 @@ import { logger } from './utils/logger.js';
 async function bootstrap() {
   // 1. Connect & sync schema
   await testConnection();
-  await sequelize.sync({ alter: false });
+  await sequelize.sync({ alter: true });
   logger.info('[db] schema synced');
 
   // 2. Seed defaults

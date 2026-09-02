@@ -32,6 +32,22 @@ const Participant = sequelize.define(
       defaultValue: false,
       comment: 'First registered member of the group, allowed to spin the wheel',
     },
+    has_paid: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Whether this participant has uploaded a valid slip',
+    },
+    slip_timestamp: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Date and time extracted from slip',
+    },
+    slip_amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      comment: 'Amount extracted from slip',
+    },
   },
   {
     tableName: 'participants',
