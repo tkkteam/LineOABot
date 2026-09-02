@@ -297,9 +297,8 @@ async function handleSlipImage(event) {
         slipData = slipResponse.data?.data;
         logger.info('[slip] SlipOK verification passed', { userId });
         
-        // ตรวจสอบวันที่ของสลิป ต้องเป็นของวันนี้เท่านั้น
+        // ตรวจสอบวันที่ของสลิปว่าเป็นสลิปเก่าหรือไม่
         if (slipData && slipData.transDate) {
-          // ดึงเวลาปัจจุบันในโซนประเทศไทย (Asia/Bangkok)
           const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
           const d = today.getDate().toString().padStart(2, '0');
           const m = (today.getMonth() + 1).toString().padStart(2, '0');
@@ -307,12 +306,58 @@ async function handleSlipImage(event) {
           const todayStr = `${y}${m}${d}`; // รูปแบบ YYYYMMDD
           
           if (slipData.transDate !== todayStr) {
-            // ดึงวันที่จากสลิปมาทำฟอร์แมตให้สวยงามเพื่อแสดงผล
+            // ดึงวันที่จากสลิปมาทำฟอร์แมตให้สวยงาม
             const slipD = slipData.transDate;
             const formattedSlipDate = slipD.length === 8 ? `${slipD.substring(6,8)}/${slipD.substring(4,6)}/${slipD.substring(0,4)}` : slipD;
             
-            await replyText(replyToken, `⚠️ สลิปของวันที่ ${formattedSlipDate} แอดมินจะทำการตรวจสอบอีกครั้งครับ`);
-            return;
+            // สร้าง Flex Message สำหรับสลิปเก่า
+            const warningFlex = {
+              type: 'flex',
+              altText: `⚠️ สลิปเก่าจากคุณ ${displayName}`,
+              contents: {
+                type: 'bubble',
+                size: 'kilo',
+                body: {
+                  type: 'box',
+                  layout: 'vertical',
+                  spacing: 'md',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '⚠️ ตรวจพบสลิปเก่า',
+                      weight: 'bold',
+                      color: '#FF9800',
+                      size: 'xl'
+                    },
+                    {
+                      type: 'text',
+                      text: `จากคุณ: ${displayName}`,
+                      size: 'md',
+                      weight: 'bold',
+                      color: '#111111',
+                      wrap: true
+                    },
+                    {
+                      type: 'separator',
+                      margin: 'md'
+                    },
+                    {
+                      type: 'text',
+                      text: `สลิปนี้เป็นของวันที่ ${formattedSlipDate} แอดมินจะทำการตรวจสอบอีกครั้งครับ`,
+                      size: 'sm',
+                      color: '#888888',
+                      wrap: true
+                    }
+                  ]
+                }
+              }
+            };
+            
+            // ส่งข้อความเตือนแบบ Flex
+            await lineClient.replyMessage({ replyToken, messages: [warningFlex] });
+            
+            // ตั้งค่านี้เพื่อให้ระบบด้านล่างรู้ว่าไม่ต้องส่ง Flex Message ซ้ำ
+            slipData.isOldSlipWarningSent = true;
           }
         }
 
@@ -394,7 +439,9 @@ async function handleSlipImage(event) {
       }
     };
 
-    await lineClient.replyMessage({ replyToken, messages: [flexMessage] });
+    if (!slipData?.isOldSlipWarningSent) {
+      await lineClient.replyMessage({ replyToken, messages: [flexMessage] });
+    }
 
   } catch (error) {
     logger.error('[slip] verification failed', { message: error.message });
