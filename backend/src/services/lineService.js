@@ -297,6 +297,136 @@ async function handleSlipImage(event) {
         slipData = slipResponse.data?.data;
         logger.info('[slip] SlipOK verification passed', { userId });
         
+        const getBankName = (code) => {
+          const banks = { '002':'ธ.กรุงเทพ','004':'ธ.กสิกรไทย','006':'ธ.กรุงไทย','011':'ทีทีบี','014':'ธ.ไทยพาณิชย์','025':'ธ.กรุงศรี','030':'ธ.ออมสิน','033':'ธอส.','034':'ธ.ก.ส.' };
+          return banks[code] || code || 'บัญชีธนาคาร/พร้อมเพย์';
+        };
+
+        const buildReceiptFlex = (isWarning) => {
+          const color = isWarning ? '#FF9800' : '#1DB446';
+          const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ แจ้งโอนเงินสำเร็จ';
+          
+          const senderName = slipData?.sender?.displayName || displayName;
+          const senderAcc = slipData?.sender?.account?.value || 'ไม่ระบุ';
+          const senderBank = getBankName(slipData?.sendingBank);
+          
+          const receiverName = slipData?.receiver?.displayName || '-';
+          const receiverAcc = slipData?.receiver?.account?.value || '-';
+          const receiverBank = getBankName(slipData?.receivingBank);
+          
+          const amountStr = slipData?.amount ? `${slipData.amount} บาท` : 'กำลังตรวจสอบ';
+          
+          let slipTsLocal = '';
+          if (slipData?.transDate && slipData?.transTime) {
+            const d = slipData.transDate;
+            const formattedDate = d.length === 8 ? `${d.substring(6,8)}/${d.substring(4,6)}/${d.substring(0,4)}` : d;
+            slipTsLocal = `${formattedDate} (${slipData.transTime.substring(0, 5)})`;
+          }
+          const dateStr = slipTsLocal ? `วันที่โอน ${slipTsLocal}` : '';
+
+          return {
+            type: 'flex',
+            altText: `แจ้งโอนเงินจาก ${displayName}`,
+            contents: {
+              type: 'bubble',
+              size: 'mega',
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'md',
+                contents: [
+                  {
+                    type: 'text',
+                    text: statusText,
+                    weight: 'bold',
+                    color: color,
+                    size: 'lg'
+                  },
+                  {
+                    type: 'text',
+                    text: amountStr,
+                    size: '3xl',
+                    weight: 'bold',
+                    color: '#111111'
+                  },
+                  {
+                    type: 'text',
+                    text: dateStr,
+                    size: 'xs',
+                    color: '#888888',
+                    margin: 'sm'
+                  },
+                  {
+                    type: 'separator',
+                    margin: 'lg'
+                  },
+                  {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'lg',
+                    contents: [
+                      {
+                        type: 'text',
+                        text: 'ผู้โอน',
+                        color: '#888888',
+                        size: 'sm',
+                        flex: 1
+                      },
+                      {
+                        type: 'box',
+                        layout: 'vertical',
+                        flex: 3,
+                        contents: [
+                          { type: 'text', text: senderName, size: 'sm', weight: 'bold', color: '#111111' },
+                          { type: 'text', text: senderBank, size: 'xs', color: '#888888' },
+                          { type: 'text', text: senderAcc, size: 'xs', color: '#888888' }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'md',
+                    contents: [
+                      {
+                        type: 'text',
+                        text: 'ผู้รับ',
+                        color: '#888888',
+                        size: 'sm',
+                        flex: 1
+                      },
+                      {
+                        type: 'box',
+                        layout: 'vertical',
+                        flex: 3,
+                        contents: [
+                          { type: 'text', text: receiverName, size: 'sm', weight: 'bold', color: '#111111' },
+                          { type: 'text', text: receiverBank, size: 'xs', color: '#888888' },
+                          { type: 'text', text: receiverAcc, size: 'xs', color: '#888888' }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    type: 'separator',
+                    margin: 'lg'
+                  },
+                  {
+                    type: 'text',
+                    text: 'แอดมินจะทำการตรวจสอบและอนุมัติยอดเงินนี้',
+                    size: 'xxs',
+                    color: '#aaaaaa',
+                    wrap: true,
+                    align: 'center',
+                    margin: 'md'
+                  }
+                ]
+              }
+            }
+          };
+        };
+
         // ตรวจสอบวันที่ของสลิปว่าเป็นสลิปเก่าหรือไม่
         if (slipData && slipData.transDate) {
           const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
@@ -306,60 +436,7 @@ async function handleSlipImage(event) {
           const todayStr = `${y}${m}${d}`; // รูปแบบ YYYYMMDD
           
           if (slipData.transDate !== todayStr) {
-            // ดึงวันที่จากสลิปมาทำฟอร์แมตให้สวยงาม
-            const slipD = slipData.transDate;
-            const formattedSlipDate = slipD.length === 8 ? `${slipD.substring(6,8)}/${slipD.substring(4,6)}/${slipD.substring(0,4)}` : slipD;
-            
-            // สร้าง Flex Message สำหรับสลิปเก่า
-            const warningFlex = {
-              type: 'flex',
-              altText: `⚠️ สลิปเก่าจากคุณ ${displayName}`,
-              contents: {
-                type: 'bubble',
-                size: 'kilo',
-                body: {
-                  type: 'box',
-                  layout: 'vertical',
-                  spacing: 'md',
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '⚠️ ตรวจพบสลิปเก่า',
-                      weight: 'bold',
-                      color: '#FF9800',
-                      size: 'xl'
-                    },
-                    {
-                      type: 'text',
-                      text: `จากคุณ: ${displayName}`,
-                      size: 'md',
-                      weight: 'bold',
-                      color: '#111111',
-                      wrap: true
-                    },
-                    {
-                      type: 'text',
-                      text: `ยอดเงิน: ${slipData.amount ? slipData.amount + ' บาท' : 'ไม่ระบุ'}`,
-                      size: 'md',
-                      weight: 'bold',
-                      color: '#FF9800',
-                      wrap: true
-                    },
-                    {
-                      type: 'separator',
-                      margin: 'md'
-                    },
-                    {
-                      type: 'text',
-                      text: `สลิปนี้เป็นของวันที่ ${formattedSlipDate} แอดมินจะทำการตรวจสอบอีกครั้งครับ`,
-                      size: 'sm',
-                      color: '#888888',
-                      wrap: true
-                    }
-                  ]
-                }
-              }
-            };
+            const warningFlex = buildReceiptFlex(true);
             
             // ส่งข้อความเตือนแบบ Flex
             await lineClient.replyMessage({ replyToken, messages: [warningFlex] });
@@ -404,59 +481,8 @@ async function handleSlipImage(event) {
       await participant.save();
     }
 
-    // สร้าง Flex Message ตอบกลับเมื่อตรวจสอบสลิปผ่านแล้ว (หรืออนุโลม)
-    const flexMessage = {
-      type: 'flex',
-      altText: `ได้รับแจ้งโอนเงินจากคุณ ${displayName} แล้ว`,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'md',
-          contents: [
-            {
-              type: 'text',
-              text: '🧾 แจ้งโอนเงินสำเร็จ',
-              weight: 'bold',
-              color: '#1DB446',
-              size: 'xl'
-            },
-            {
-              type: 'text',
-              text: `จากคุณ: ${displayName}`,
-              size: 'md',
-              weight: 'bold',
-              color: '#111111',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `ยอดเงิน: ${slipData?.amount ? slipData.amount + ' บาท' : 'กำลังตรวจสอบ'}`,
-              size: 'md',
-              weight: 'bold',
-              color: '#1DB446',
-              wrap: true
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            },
-            {
-              type: 'text',
-              text: 'ระบบได้รับรูปสลิปเรียบร้อยแล้ว แอดมินจะทำการตรวจสอบยอดเงินอีกครั้งครับ 🙏',
-              size: 'sm',
-              color: '#888888',
-              wrap: true
-            }
-          ]
-        }
-      }
-    };
-
     if (!slipData?.isOldSlipWarningSent) {
-      await lineClient.replyMessage({ replyToken, messages: [flexMessage] });
+      await lineClient.replyMessage({ replyToken, messages: [buildReceiptFlex(false)] });
     }
 
   } catch (error) {
