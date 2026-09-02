@@ -294,11 +294,10 @@ async function handleSlipImage(event) {
         );
         logger.info('[slip] SlipOK verification passed', { userId });
       } catch (err) {
-        // หาก API แจ้งว่าไม่ใช่สลิป หรือสลิปไม่ถูกต้อง ให้หยุดการทำงาน (ไม่ตอบกลับใดๆ)
+        // หาก API แจ้งว่าไม่ใช่สลิป หรือสลิปไม่ถูกต้อง (เช่น ไม่มี QR Code) 
+        // ให้หยุดการทำงานและไม่ตอบกลับใดๆ (เพื่อให้คนส่งรูปปกติเล่นกันได้ ไม่รำคาญบอท)
         const slipError = err.response?.data || err.message;
         logger.error('[slip] SlipOK verification failed', { userId, slipError });
-        // ชั่วคราว: ตอบกลับ error เพื่อให้แอดมินเห็นว่าเกิดอะไรขึ้น
-        await replyText(replyToken, `❌ SlipOK Error: ${JSON.stringify(slipError)}`);
         return; 
       }
     } else {
