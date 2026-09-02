@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import path from 'path';
 import config from './config/index.js';
 import routes from './routes/index.js';
 import { lineMiddleware, lineConfigured } from './services/lineClient.js';
@@ -50,8 +51,6 @@ if (lineConfigured()) {
 // ---------- REST API ----------
 app.use(express.json({ limit: '1mb' }));
 app.use('/api', apiLimiter, routes);
-
-import path from 'path';
 
 // ---------- Health check ----------
 app.get('/health', (req, res) =>
