@@ -278,17 +278,16 @@ async function handleSlipImage(event) {
     // ตรวจสอบสลิปด้วย SlipOK API
     if (config.slipok && config.slipok.branchId && config.slipok.apiKey) {
       try {
-        const buffer = fs.readFileSync(filePath);
+        const form = new FormData();
+        form.append('files', fs.createReadStream(filePath));
 
         await axios.post(
           `https://api.slipok.com/api/line/apikey/${config.slipok.branchId}`,
-          {
-            files: buffer
-          },
+          form,
           {
             headers: {
               'x-authorization': config.slipok.apiKey,
-              'Content-Type': 'multipart/form-data',
+              ...form.getHeaders()
             }
           }
         );
