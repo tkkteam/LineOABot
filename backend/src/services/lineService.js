@@ -44,16 +44,23 @@ function routeCommand(normalized) {
 }
 
 /** Find or create the Group row for a LINE groupId. */
-async function ensureGroup(groupId) {
+async function ensureGroup(groupId, defaultName = '') {
   let group = await Group.findOne({ where: { line_group_id: groupId } });
   if (!group) {
-    group = await Group.create({ line_group_id: groupId, name: '' });
-    // Try to enrich with the real group name from LINE API
-    try {
-      const summary = await lineClient.getGroupSummary(groupId);
-      await group.update({ name: summary.groupName || '' });
-    } catch (err) {
-      logger.warn('[line] could not fetch group summary', { groupId, message: err.message });
+    let name = defaultName;
+    if (groupId.startsWith('dm_')) {
+      name = 'แชทส่วนตัว (ทดสอบ)';
+    }
+    group = await Group.create({ line_group_id: groupId, name });
+    
+    // Try to enrich with the real group name from LINE API (only for real groups)
+    if (!groupId.startsWith('dm_')) {
+      try {
+        const summary = await lineClient.getGroupSummary(groupId);
+        await group.update({ name: summary.groupName || '' });
+      } catch (err) {
+        logger.warn('[line] could not fetch group summary', { groupId, message: err.message });
+      }
     }
   }
   return group;
@@ -229,20 +236,17 @@ async function handleSlipImage(event) {
     const userId = source.userId;
     const groupId = source.groupId;
     const messageId = message.id;
-    
-    // บังคับให้ส่งสลิปในกลุ่มเท่านั้น
-    if (!groupId) {
-      await replyText(replyToken, '❌ กรุณาส่งสลิปยืนยันใน "กลุ่มแชท" เท่านั้นครับ เพื่อให้ระบบบันทึกยอดเข้ากลุ่มได้อย่างถูกต้อง');
-      return;
-    }
+    // อนุญาตให้ส่งสลิปส่วนตัวได้ (เพื่อทดสอบ) โดยใช้ pseudo-groupId
+    const pseudoGroupId = groupId || `dm_${userId}`;
+    const isDirectMessage = !groupId;
     
     // ดึงชื่อผู้ใช้จาก LINE
     let displayName = 'ผู้ใช้งาน';
     try {
-      if (groupId) {
+      if (!isDirectMessage) {
         const profile = await lineClient.getGroupMemberProfile(groupId, userId);
         displayName = profile.displayName || displayName;
-      } else if (userId) {
+      } else {
         const profile = await lineClient.getProfile(userId);
         displayName = profile.displayName || displayName;
       }
@@ -465,8 +469,8 @@ async function handleSlipImage(event) {
     }
 
     // อัปเดตข้อมูลสลิป แต่ให้แอดมินยืนยันก่อน (has_paid = false)
-    if (groupId) {
-      const group = await ensureGroup(groupId);
+    if (pseudoGroupId) {
+      const group = await ensureGroup(pseudoGroupId, isDirectMessage ? 'แชทส่วนตัว (ทดสอบ)' : '');
       
       let [participant] = await Participant.findOrCreate({
         where: { group_id: group.id, user_id: userId },

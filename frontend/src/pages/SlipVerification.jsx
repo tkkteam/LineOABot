@@ -34,6 +34,16 @@ export default function SlipVerification() {
     }
   };
 
+  const handleReject = async (id) => {
+    if (!window.confirm('คุณต้องการปฏิเสธ/ลบสลิปนี้ใช่หรือไม่? ข้อมูลสลิปจะถูกลบออกไป')) return;
+    try {
+      await api.post(`/participants/${id}/reject`);
+      setSlips(slips.filter(s => s.id !== id));
+    } catch (err) {
+      alert('เกิดข้อผิดพลาด: ' + errorMessage(err));
+    }
+  };
+
   if (loading) return <div className="p-4">กำลังโหลด...</div>;
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
 
@@ -41,7 +51,11 @@ export default function SlipVerification() {
     <div>
       <h1 className="text-2xl font-bold mb-4">ตรวจสอบสลิปโอนเงิน (รอยืนยัน)</h1>
       {slips.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg border text-center text-slate-500">ไม่มีสลิปที่รอการตรวจสอบ</div>
+        <div className="bg-white p-10 rounded-lg border text-center text-slate-500 shadow-sm">
+          <div className="text-4xl mb-3">📄</div>
+          <div className="text-lg font-medium">ยังไม่มีข้อมูล</div>
+          <div className="text-sm mt-1 text-slate-400">เมื่อมีผู้ใช้อัปโหลดสลิป รูปภาพจะมาปรากฏที่นี่ครับ</div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {slips.map((slip) => (
@@ -66,12 +80,18 @@ export default function SlipVerification() {
                 </div>
               </div>
               
-              <div className="p-3 border-t bg-slate-50">
+              <div className="p-3 border-t bg-slate-50 flex gap-2">
+                <button
+                  onClick={() => handleReject(slip.id)}
+                  className="flex-1 bg-white text-red-500 border border-red-200 py-2 rounded-lg font-medium hover:bg-red-50 transition text-sm"
+                >
+                  ❌ ปฏิเสธ/ลบ
+                </button>
                 <button
                   onClick={() => handleApprove(slip.id)}
-                  className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition"
+                  className="flex-[2] bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition text-sm"
                 >
-                  ✅ ยืนยันว่าโอนเงินจริง
+                  ✅ ยืนยันสลิป
                 </button>
               </div>
             </div>
