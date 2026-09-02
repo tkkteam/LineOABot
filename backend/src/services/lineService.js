@@ -492,7 +492,11 @@ async function handleSlipImage(event) {
     }
 
     if (!slipData?.isOldSlipWarningSent) {
-      await lineClient.replyMessage({ replyToken, messages: [buildReceiptFlex(false)] });
+      if (typeof buildReceiptFlex === 'function') {
+        await lineClient.replyMessage({ replyToken, messages: [buildReceiptFlex(false)] });
+      } else {
+        await replyText(replyToken, '✅ บันทึกรูปสลิปแล้ว (รอแอดมินตรวจสอบ)');
+      }
     }
 
   } catch (error) {
