@@ -230,6 +230,12 @@ async function handleSlipImage(event) {
     const groupId = source.groupId;
     const messageId = message.id;
     
+    // บังคับให้ส่งสลิปในกลุ่มเท่านั้น
+    if (!groupId) {
+      await replyText(replyToken, '❌ กรุณาส่งสลิปยืนยันใน "กลุ่มแชท" เท่านั้นครับ เพื่อให้ระบบบันทึกยอดเข้ากลุ่มได้อย่างถูกต้อง');
+      return;
+    }
+    
     // ดึงชื่อผู้ใช้จาก LINE
     let displayName = 'ผู้ใช้งาน';
     try {
