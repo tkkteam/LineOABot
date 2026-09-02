@@ -1,14 +1,10 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
+import api, { errorMessage } from '../api/client.js';
 
 export default function SlipVerification() {
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { token } = useAuth();
-  
-  const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   useEffect(() => {
     fetchSlips();
@@ -17,13 +13,11 @@ export default function SlipVerification() {
   const fetchSlips = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${backendUrl}/api/participants/pending`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/participants/pending');
       setSlips(res.data.data);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -32,13 +26,11 @@ export default function SlipVerification() {
   const handleApprove = async (id) => {
     if (!window.confirm('ยืนยันสลิปนี้? ระบบจะส่งข้อความแจ้งยอดลงกลุ่มทันที')) return;
     try {
-      await axios.post(`${backendUrl}/api/participants/${id}/approve`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post(`/participants/${id}/approve`);
       setSlips(slips.filter(s => s.id !== id));
       alert('ยืนยันและส่งข้อความลงกลุ่มเรียบร้อยแล้ว');
     } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + (err.response?.data?.message || err.message));
+      alert('เกิดข้อผิดพลาด: ' + errorMessage(err));
     }
   };
 
@@ -60,9 +52,9 @@ export default function SlipVerification() {
               </div>
               
               <div className="p-4 flex-1 flex flex-col items-center">
-                <a href={`${backendUrl}/uploads/slips/${slip.slip_image}`} target="_blank" rel="noreferrer">
+                <a href={`/uploads/slips/${slip.slip_image}`} target="_blank" rel="noreferrer">
                   <img 
-                    src={`${backendUrl}/uploads/slips/${slip.slip_image}`} 
+                    src={`/uploads/slips/${slip.slip_image}`} 
                     alt="Slip" 
                     className="max-h-64 object-contain rounded mb-3 border hover:opacity-90 cursor-pointer"
                   />
