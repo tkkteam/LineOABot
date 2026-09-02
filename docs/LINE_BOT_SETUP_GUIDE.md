@@ -45,7 +45,7 @@
 3. ดาวน์โหลดโค้ดโปรเจกต์จาก Github ลงเซิร์ฟเวอร์:
    ```bash
    git clone https://github.com/tkkteam/LineOABot.git
-   ผม
+   cd LineOABot
    ```
 4. สร้างไฟล์ `.env` เพื่อเก็บ Token ความลับ:
    ```bash

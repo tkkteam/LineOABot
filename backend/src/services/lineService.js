@@ -296,6 +296,26 @@ async function handleSlipImage(event) {
         );
         slipData = slipResponse.data?.data;
         logger.info('[slip] SlipOK verification passed', { userId });
+        
+        // ตรวจสอบวันที่ของสลิป ต้องเป็นของวันนี้เท่านั้น
+        if (slipData && slipData.transDate) {
+          // ดึงเวลาปัจจุบันในโซนประเทศไทย (Asia/Bangkok)
+          const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+          const d = today.getDate().toString().padStart(2, '0');
+          const m = (today.getMonth() + 1).toString().padStart(2, '0');
+          const y = today.getFullYear().toString();
+          const todayStr = `${y}${m}${d}`; // รูปแบบ YYYYMMDD
+          
+          if (slipData.transDate !== todayStr) {
+            // ดึงวันที่จากสลิปมาทำฟอร์แมตให้สวยงามเพื่อแสดงผล
+            const slipD = slipData.transDate;
+            const formattedSlipDate = slipD.length === 8 ? `${slipD.substring(6,8)}/${slipD.substring(4,6)}/${slipD.substring(0,4)}` : slipD;
+            
+            await replyText(replyToken, `⚠️ สลิปของวันที่ ${formattedSlipDate} แอดมินจะทำการตรวจสอบอีกครั้งครับ`);
+            return;
+          }
+        }
+
       } catch (err) {
         // หาก API แจ้งว่าไม่ใช่สลิป หรือสลิปไม่ถูกต้อง (เช่น ไม่มี QR Code) 
         // ให้หยุดการทำงานและไม่ตอบกลับใดๆ (เพื่อให้คนส่งรูปปกติเล่นกันได้ ไม่รำคาญบอท)

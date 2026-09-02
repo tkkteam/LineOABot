@@ -1,0 +1,10 @@
+cd LineOABot 
+
+git pull            
+
+sudo docker compose up -d --build backend  
+
+nano backend/.env
+
+cp backend/.env .env
+
