@@ -338,6 +338,14 @@ async function handleSlipImage(event) {
                       wrap: true
                     },
                     {
+                      type: 'text',
+                      text: `ยอดเงิน: ${slipData.amount ? slipData.amount + ' บาท' : 'ไม่ระบุ'}`,
+                      size: 'md',
+                      weight: 'bold',
+                      color: '#FF9800',
+                      wrap: true
+                    },
+                    {
                       type: 'separator',
                       margin: 'md'
                     },
@@ -421,6 +429,14 @@ async function handleSlipImage(event) {
               size: 'md',
               weight: 'bold',
               color: '#111111',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `ยอดเงิน: ${slipData?.amount ? slipData.amount + ' บาท' : 'กำลังตรวจสอบ'}`,
+              size: 'md',
+              weight: 'bold',
+              color: '#1DB446',
               wrap: true
             },
             {
