@@ -51,10 +51,15 @@ if (lineConfigured()) {
 app.use(express.json({ limit: '1mb' }));
 app.use('/api', apiLimiter, routes);
 
+import path from 'path';
+
 // ---------- Health check ----------
 app.get('/health', (req, res) =>
   res.status(200).json({ success: true, status: 'ok', ts: new Date().toISOString() }),
 );
+
+// Serve static files for slips
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ---------- 404 + error handling ----------
 app.use(notFound);

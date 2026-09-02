@@ -48,6 +48,11 @@ const Participant = sequelize.define(
       allowNull: true,
       comment: 'Amount extracted from slip',
     },
+    slip_image: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Filename of the uploaded slip',
+    },
   },
   {
     tableName: 'participants',

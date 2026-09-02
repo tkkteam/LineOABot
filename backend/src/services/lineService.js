@@ -328,56 +328,73 @@ async function handleSlipImage(event) {
       // ระบบจะอนุโลมตอบกลับทุกรูปไปก่อนจนกว่าจะใส่ API Key (หรือถ้าอยากให้เงียบไปเลย สามารถมาแก้โค้ดตรงนี้ให้ return; ได้ครับ)
     }
 
-    // อัปเดตสถานะการจ่ายเงิน และดึงรายชื่อ
-    let paidListMessage = '';
+    // อัปเดตข้อมูลสลิป แต่ให้แอดมินยืนยันก่อน (has_paid = false)
     if (groupId) {
       const group = await ensureGroup(groupId);
       
-      // ค้นหาหรือสร้างผู้ใช้งานในกลุ่ม (ถ้าเขายังไม่เคยพิมพ์ สมัคร ก็สมัครให้อัตโนมัติเลย)
       let [participant] = await Participant.findOrCreate({
         where: { group_id: group.id, user_id: userId },
-        defaults: { display_name: displayName, is_group_admin: false, has_paid: true }
+        defaults: { display_name: displayName, is_group_admin: false, has_paid: false }
       });
       
-      // ดึงข้อมูลวันที่และยอดเงินจาก SlipOK
       let slipTs = '';
       if (slipData?.transDate && slipData?.transTime) {
-        const d = slipData.transDate; // รูปแบบ yyyyMMdd
+        const d = slipData.transDate;
         const formattedDate = d.length === 8 ? `${d.substring(6,8)}/${d.substring(4,6)}/${d.substring(0,4)}` : d;
-        slipTs = `${formattedDate} ${slipData.transTime.substring(0, 5)}`; // เอาแค่ชั่วโมงนาที HH:mm
+        slipTs = `${formattedDate} ${slipData.transTime.substring(0, 5)}`;
       }
 
-      participant.has_paid = true;
+      participant.has_paid = false; // รอแอดมินยืนยัน
       if (slipTs) participant.slip_timestamp = slipTs;
       if (slipData?.amount) participant.slip_amount = slipData.amount;
+      if (fileName) participant.slip_image = fileName; // บันทึกชื่อไฟล์รูปลง DB เพื่อไปโชว์ในเว็บ
       await participant.save();
+    }
 
-      // ดึงรายชื่อคนที่จ่ายแล้วทั้งหมดในกลุ่มนี้
-      const paidParticipants = await Participant.findAll({
-        where: { group_id: group.id, has_paid: true },
-        order: [['updated_at', 'ASC']]
-      });
-
-      if (paidParticipants.length > 0) {
-        const lines = paidParticipants.map((p, index) => {
-          let extraInfo = '';
-          if (p.slip_timestamp) {
-             const amt = p.slip_amount ? ` ยอด ${p.slip_amount}บ.` : '';
-             extraInfo = ` (โอน ${p.slip_timestamp}${amt})`;
-          }
-          return `${index + 1}. ${p.display_name} จ่ายแล้ว ✅${extraInfo}`;
-        });
-        paidListMessage = `แชร์ทั้งหมด 16 มือ ยอดเงิน 16,000 บ.\nงวดที่ 4 เปียทุกวันที่ 5 และวันที่ 20 ของเดือน\n${lines.join('\n')}`;
+    // สร้าง Flex Message ตอบกลับเมื่อตรวจสอบสลิปผ่านแล้ว (หรืออนุโลม)
+    const flexMessage = {
+      type: 'flex',
+      altText: `ได้รับแจ้งโอนเงินจากคุณ ${displayName} แล้ว`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: '🧾 แจ้งโอนเงินสำเร็จ',
+              weight: 'bold',
+              color: '#1DB446',
+              size: 'xl'
+            },
+            {
+              type: 'text',
+              text: `จากคุณ: ${displayName}`,
+              size: 'md',
+              weight: 'bold',
+              color: '#111111',
+              wrap: true
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: 'ระบบได้รับรูปสลิปเรียบร้อยแล้ว แอดมินจะทำการตรวจสอบยอดเงินอีกครั้งครับ 🙏',
+              size: 'sm',
+              color: '#888888',
+              wrap: true
+            }
+          ]
+        }
       }
-    }
+    };
 
-    // ตอบกลับด้วย Text ข้อความสรุปรายชื่อ (ถ้าอยู่ในกลุ่ม)
-    if (paidListMessage) {
-      await replyText(replyToken, paidListMessage);
-    } else {
-      // กรณีไม่ได้อยู่ในกลุ่ม หรือเกิดเหตุขัดข้อง
-      await replyText(replyToken, `🧾 แจ้งโอนเงินสำเร็จ\nจากคุณ: ${displayName}`);
-    }
+    await lineClient.replyMessage({ replyToken, messages: [flexMessage] });
 
   } catch (error) {
     logger.error('[slip] verification failed', { message: error.message });

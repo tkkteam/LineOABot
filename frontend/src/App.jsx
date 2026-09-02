@@ -9,6 +9,7 @@ import DrawWheel from './pages/DrawWheel.jsx';
 import WinnerHistory from './pages/WinnerHistory.jsx';
 import Groups from './pages/Groups.jsx';
 import Settings from './pages/Settings.jsx';
+import SlipVerification from './pages/SlipVerification.jsx';
 import Spinner from './components/Spinner.jsx';
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/winners" element={<WinnerHistory />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/slips" element={<SlipVerification />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

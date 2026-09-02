@@ -109,3 +109,71 @@ export async function toggleGroupAdmin(req, res, next) {
   }
 }
 
+/** GET /api/participants/pending */
+export async function listPendingSlips(req, res, next) {
+  try {
+    const pendingSlips = await Participant.findAll({
+      where: {
+        has_paid: false,
+        slip_image: { [Op.ne]: null }
+      },
+      include: [{ model: Group, as: 'group', attributes: ['id', 'name', 'line_group_id'] }],
+      order: [['updated_at', 'DESC']]
+    });
+    return ok(res, pendingSlips);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** POST /api/participants/:id/approve */
+export async function approveSlip(req, res, next) {
+  try {
+    const participant = await Participant.findByPk(req.params.id, {
+      include: [{ model: Group, as: 'group' }]
+    });
+    if (!participant) {
+      throw new ApiError(404, 'Participant not found');
+    }
+    
+    // อัปเดตให้เป็นจ่ายแล้ว
+    participant.has_paid = true;
+    await participant.save();
+
+    // ดึงรายชื่อคนที่จ่ายแล้วทั้งหมดในกลุ่มนี้เพื่อสรุปยอด
+    const paidParticipants = await Participant.findAll({
+      where: { group_id: participant.group_id, has_paid: true },
+      order: [['updated_at', 'ASC']]
+    });
+
+    let paidListMessage = '';
+    if (paidParticipants.length > 0) {
+      const lines = paidParticipants.map((p, index) => {
+        let extraInfo = '';
+        if (p.slip_timestamp) {
+           const amt = p.slip_amount ? ` ยอด ${p.slip_amount}บ.` : '';
+           extraInfo = ` (โอน ${p.slip_timestamp}${amt})`;
+        }
+        return `${index + 1}. ${p.display_name} จ่ายแล้ว ✅${extraInfo}`;
+      });
+      paidListMessage = `แชร์ทั้งหมด 16 มือ ยอดเงิน 16,000 บ.\nงวดที่ 4 เปียทุกวันที่ 5 และวันที่ 20 ของเดือน\n${lines.join('\n')}`;
+    }
+
+    // เรียกใช้ lineClient เพื่อส่งข้อความกลับไปที่กลุ่ม
+    const { lineClient } = await import('../services/lineClient.js');
+    if (participant.group && participant.group.line_group_id) {
+      await lineClient.pushMessage({
+        to: participant.group.line_group_id,
+        messages: [{
+          type: 'text',
+          text: paidListMessage
+        }]
+      });
+    }
+
+    return ok(res, participant, 'Slip approved successfully');
+  } catch (err) {
+    return next(err);
+  }
+}
+
