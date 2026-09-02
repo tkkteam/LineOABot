@@ -250,6 +250,9 @@ async function handleSlipImage(event) {
       fs.mkdirSync(slipsDir, { recursive: true });
     }
 
+    const fileName = `${Date.now()}_${userId}.jpg`;
+    const filePath = path.join(slipsDir, fileName);
+
     // ดาวน์โหลดรูปภาพสลิปจาก LINE
     try {
       const response = await axios({
@@ -261,8 +264,6 @@ async function handleSlipImage(event) {
         responseType: 'stream'
       });
 
-      const fileName = `${Date.now()}_${userId}.jpg`;
-      const filePath = path.join(slipsDir, fileName);
       const writer = fs.createWriteStream(filePath);
       
       response.data.pipe(writer);
