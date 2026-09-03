@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import api, { errorMessage } from '../api/client.js';
 
 export default function SlipVerification() {
@@ -24,23 +25,40 @@ export default function SlipVerification() {
   };
 
   const handleApprove = async (id) => {
-    if (!window.confirm('ยืนยันสลิปนี้? ระบบจะส่งข้อความแจ้งยอดลงกลุ่มทันที')) return;
+    const result = await Swal.fire({
+      title: 'ยืนยันสลิปนี้?',
+      text: 'ระบบจะส่งข้อความแจ้งยอดลงกลุ่มทันที',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     try {
       await api.post(`/participants/${id}/approve`);
       setSlips(slips.filter(s => s.id !== id));
-      alert('ยืนยันและส่งข้อความลงกลุ่มเรียบร้อยแล้ว');
+      Swal.fire('สำเร็จ', 'ยืนยันและบันทึกยอดเรียบร้อยแล้ว', 'success');
     } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + errorMessage(err));
+      Swal.fire('เกิดข้อผิดพลาด', errorMessage(err), 'error');
     }
   };
 
   const handleReject = async (id) => {
-    if (!window.confirm('คุณต้องการปฏิเสธ/ลบสลิปนี้ใช่หรือไม่? ข้อมูลสลิปจะถูกลบออกไป')) return;
+    const result = await Swal.fire({
+      title: 'คุณต้องการปฏิเสธ/ลบสลิปนี้ใช่หรือไม่?',
+      text: 'ข้อมูลสลิปจะถูกลบออกไป',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'ใช่, ลบเลย',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     try {
       await api.post(`/participants/${id}/reject`);
       setSlips(slips.filter(s => s.id !== id));
+      Swal.fire('สำเร็จ', 'ปฏิเสธและลบสลิปเรียบร้อยแล้ว', 'info');
     } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + errorMessage(err));
+      Swal.fire('เกิดข้อผิดพลาด', errorMessage(err), 'error');
     }
   };
 

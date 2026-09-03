@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import api from '../api/client.js';
 
 export default function Transactions() {
@@ -13,10 +14,10 @@ export default function Transactions() {
     try {
       setLoading(true);
       const res = await api.get(`/transactions?month=${m}&pageSize=500`);
-      setTransactions(res.data.rows || []);
+      setTransactions(res.data.data?.items || []);
     } catch (err) {
       console.error(err);
-      alert('Failed to load transactions');
+      Swal.fire('ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลรายการโอนเงินได้', 'error');
     } finally {
       setLoading(false);
     }
