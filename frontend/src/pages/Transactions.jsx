@@ -92,7 +92,7 @@ export default function Transactions() {
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 whitespace-nowrap">
             <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-900">
               <tr>
                 <th className="px-4 py-3">วันที่อนุมัติ</th>

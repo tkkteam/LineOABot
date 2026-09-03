@@ -70,7 +70,7 @@ export default function Dashboard() {
         <p className="text-sm text-slate-500">ภาพรวมระบบจับสลาก</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard icon="👥" label="สมาชิกทั้งหมด" value={totals.participants} accent="bg-blue-100" />
         <StatCard icon="💬" label="กลุ่มทั้งหมด" value={totals.groups} accent="bg-emerald-100" />
         <StatCard icon="🏆" label="ผู้ชนะทั้งหมด" value={totals.winners} accent="bg-amber-100" />

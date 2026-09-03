@@ -81,7 +81,7 @@ export default function Groups() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px]">
+            <table className="w-full min-w-[680px] whitespace-nowrap">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
                   <th className="table-th">กลุ่ม</th>

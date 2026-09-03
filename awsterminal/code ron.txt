@@ -13,3 +13,5 @@ cp backend/.env .env
 
 sudo docker compose -f docker-compose.prod.yml pull                                                                                      
 sudo docker compose -f docker-compose.prod.yml up -d 
+
+sudo docker compose -f docker-compose.prod.yml restart nginx 

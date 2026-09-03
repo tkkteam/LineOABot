@@ -111,7 +111,7 @@ export default function WinnerHistory() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
+            <table className="w-full min-w-[640px] whitespace-nowrap">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
                   <th className="table-th">#</th>
