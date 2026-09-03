@@ -94,3 +94,60 @@ export function buildWinnerFlexMessage({ winnerName, drawTime, groupId }) {
 export function textMessage(text) {
   return { type: 'text', text };
 }
+
+/** Reject Slip Flex Message */
+export function buildRejectSlipFlexMessage(displayName) {
+  return {
+    type: 'flex',
+    altText: `❌ ปฏิเสธการรับยอดของ ${displayName || 'ผู้ใช้'}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: '❌ ปฏิเสธการรับยอด',
+            weight: 'bold',
+            color: '#EF4444',
+            size: 'lg',
+            align: 'center'
+          },
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          {
+            type: 'text',
+            text: `ผู้ใช้: ${displayName || 'คุณ'}`,
+            size: 'sm',
+            color: '#374151',
+            weight: 'bold',
+            align: 'center'
+          },
+          {
+            type: 'text',
+            text: 'แอดมินยังไม่ได้รับเงิน หรือสลิปที่ส่งไม่ถูกต้อง',
+            size: 'sm',
+            color: '#111827',
+            wrap: true,
+            margin: 'md',
+            align: 'center'
+          },
+          {
+            type: 'text',
+            text: 'กรุณาติดต่อแอดมินอีกครั้งเพื่อตรวจสอบ',
+            size: 'xs',
+            color: '#6B7280',
+            wrap: true,
+            margin: 'sm',
+            align: 'center'
+          }
+        ]
+      }
+    }
+  };
+}

@@ -140,43 +140,6 @@ export async function approveSlip(req, res, next) {
     participant.has_paid = true;
     await participant.save();
 
-    // ดึงรายชื่อคนที่จ่ายแล้วทั้งหมดในกลุ่มนี้เพื่อสรุปยอด
-    const paidParticipants = await Participant.findAll({
-      where: { group_id: participant.group_id, has_paid: true },
-      order: [['updated_at', 'ASC']]
-    });
-
-    let paidListMessage = '';
-    if (paidParticipants.length > 0) {
-      const lines = paidParticipants.map((p, index) => {
-        let extraInfo = '';
-        if (p.slip_timestamp) {
-           const amt = p.slip_amount ? ` ยอด ${p.slip_amount}บ.` : '';
-           extraInfo = ` (โอน ${p.slip_timestamp}${amt})`;
-        }
-        return `${index + 1}. ${p.display_name} จ่ายแล้ว ✅${extraInfo}`;
-      });
-      paidListMessage = `แชร์ทั้งหมด 16 มือ ยอดเงิน 16,000 บ.\nงวดที่ 4 เปียทุกวันที่ 5 และวันที่ 20 ของเดือน\n${lines.join('\n')}`;
-    }
-
-    // เรียกใช้ lineClient เพื่อส่งข้อความกลับไปที่กลุ่ม (หรือแชทส่วนตัว)
-    const { lineClient } = await import('../services/lineClient.js');
-    if (participant.group && participant.group.line_group_id) {
-      let targetId = participant.group.line_group_id;
-      // ถ้าเป็น pseudo-group สำหรับ DM ให้ส่งกลับไปที่ user_id โดยตรง
-      if (targetId.startsWith('dm_')) {
-        targetId = participant.user_id;
-      }
-      
-      await lineClient.pushMessage({
-        to: targetId,
-        messages: [{
-          type: 'text',
-          text: paidListMessage
-        }]
-      });
-    }
-
     return ok(res, participant, 'Slip approved successfully');
   } catch (err) {
     return next(err);
@@ -186,7 +149,9 @@ export async function approveSlip(req, res, next) {
 /** POST /api/participants/:id/reject */
 export async function rejectSlip(req, res, next) {
   try {
-    const participant = await Participant.findByPk(req.params.id);
+    const participant = await Participant.findByPk(req.params.id, {
+      include: [{ model: Group, as: 'group' }]
+    });
     if (!participant) {
       throw new ApiError(404, 'Participant not found');
     }
@@ -197,6 +162,22 @@ export async function rejectSlip(req, res, next) {
     participant.slip_amount = null;
     participant.slip_timestamp = null;
     await participant.save();
+
+    // ส่งแจ้งเตือนไปยัง LINE
+    const { lineClient } = await import('../services/lineClient.js');
+    const { buildRejectSlipFlexMessage } = await import('../services/flexMessages.js');
+
+    if (participant.group && participant.group.line_group_id) {
+      let targetId = participant.group.line_group_id;
+      if (targetId.startsWith('dm_')) {
+        targetId = participant.user_id;
+      }
+
+      await lineClient.pushMessage({
+        to: targetId,
+        messages: [buildRejectSlipFlexMessage(participant.display_name)]
+      });
+    }
 
     return ok(res, participant, 'Slip rejected and removed successfully');
   } catch (err) {
