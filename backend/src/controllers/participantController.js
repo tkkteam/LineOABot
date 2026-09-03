@@ -136,6 +136,10 @@ export async function approveSlip(req, res, next) {
       throw new ApiError(404, 'Participant not found');
     }
     
+    if (participant.has_paid) {
+      return ok(res, participant, 'Slip is already approved');
+    }
+    
     // อัปเดตให้เป็นจ่ายแล้ว
     participant.has_paid = true;
     await participant.save();

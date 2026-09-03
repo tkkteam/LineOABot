@@ -1,4 +1,4 @@
-import { Group, Participant, Winner } from '../models/index.js';
+import { Group, Participant, Winner, Transaction } from '../models/index.js';
 import { lineClient } from './lineClient.js';
 import { spinForGroup } from './wheelService.js';
 import { getSetting } from './settingsService.js';
@@ -310,8 +310,10 @@ async function handleSlipImage(event) {
 
         // ตรวจสอบสลิปซ้ำ (Duplicate Slip Check)
         if (slipData?.transRef) {
-          const existingSlip = await Participant.findOne({ where: { slip_ref: slipData.transRef } });
-          if (existingSlip) {
+          const existingParticipantSlip = await Participant.findOne({ where: { slip_ref: slipData.transRef } });
+          const existingTransactionSlip = await Transaction.findOne({ where: { slip_ref: slipData.transRef } });
+          
+          if (existingParticipantSlip || existingTransactionSlip) {
             // ลบรูปที่โหลดมาทิ้งเพราะซ้ำ
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
