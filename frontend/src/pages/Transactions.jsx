@@ -45,7 +45,7 @@ export default function Transactions() {
     
     try {
       await api.delete(`/transactions/${id}`);
-      setTransactions(transactions.filter(t => t.id !== id));
+      setTransactions(prev => prev.filter(t => t.id !== id));
       Swal.fire('สำเร็จ', 'ลบประวัติเรียบร้อยแล้ว', 'success');
     } catch (err) {
       Swal.fire('เกิดข้อผิดพลาด', err?.response?.data?.message || err.message, 'error');
