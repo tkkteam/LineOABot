@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { listTransactions } from '../controllers/transactionController.js';
-import { requireAuth } from '../middleware/authMiddleware.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
 // Protect all routes
-router.use(requireAuth);
+router.use(authenticate);
 
 router.get('/', listTransactions);
 
