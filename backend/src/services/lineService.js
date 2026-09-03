@@ -307,6 +307,22 @@ async function handleSlipImage(event) {
         );
         slipData = slipResponse.data?.data;
         logger.info('[slip] SlipOK verification passed', { userId });
+
+        // ตรวจสอบสลิปซ้ำ (Duplicate Slip Check)
+        if (slipData?.transRef) {
+          const existingSlip = await Participant.findOne({ where: { slip_ref: slipData.transRef } });
+          if (existingSlip) {
+            // ลบรูปที่โหลดมาทิ้งเพราะซ้ำ
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+            await lineClient.replyMessage({ 
+              replyToken, 
+              messages: [{ type: 'text', text: '❌ สลิปนี้ถูกใช้งานไปแล้ว ไม่สามารถส่งซ้ำได้' }] 
+            });
+            return;
+          }
+        }
         
         const getBankName = (code) => {
           const banks = { '002':'ธ.กรุงเทพ','004':'ธ.กสิกรไทย','006':'ธ.กรุงไทย','011':'ทีทีบี','014':'ธ.ไทยพาณิชย์','025':'ธ.กรุงศรี','030':'ธ.ออมสิน','033':'ธอส.','034':'ธ.ก.ส.' };
@@ -488,6 +504,7 @@ async function handleSlipImage(event) {
       participant.has_paid = false; // รอแอดมินยืนยัน
       if (slipTs) participant.slip_timestamp = slipTs;
       if (slipData?.amount) participant.slip_amount = slipData.amount;
+      if (slipData?.transRef) participant.slip_ref = slipData.transRef;
       if (fileName) participant.slip_image = fileName; // บันทึกชื่อไฟล์รูปลง DB เพื่อไปโชว์ในเว็บ
       await participant.save();
     }

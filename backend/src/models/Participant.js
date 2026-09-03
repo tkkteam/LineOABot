@@ -53,6 +53,11 @@ const Participant = sequelize.define(
       allowNull: true,
       comment: 'Filename of the uploaded slip',
     },
+    slip_ref: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Transaction Reference from the slip to prevent duplicates',
+    },
   },
   {
     tableName: 'participants',
