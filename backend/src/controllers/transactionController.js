@@ -38,3 +38,56 @@ export async function listTransactions(req, res, next) {
     return next(err);
   }
 }
+
+/** DELETE /api/transactions/:id */
+export async function deleteTransaction(req, res, next) {
+  try {
+    const transaction = await Transaction.findByPk(req.params.id);
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaction not found' });
+    }
+    
+    // หากลบ Transaction ต้องอัพเดท participant ว่ายังไม่จ่ายด้วยไหม?
+    // ปกติประวัติโอนเงิน (Transaction) จะแค่เก็บประวัติ 
+    // แต่ถ้าลบ ก็ลบออกไปเลย
+    await transaction.destroy();
+    
+    return res.status(200).json({ success: true, message: 'Transaction deleted successfully' });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** POST /api/transactions/:id/notify */
+export async function notifyTransaction(req, res, next) {
+  try {
+    const transaction = await Transaction.findByPk(req.params.id, {
+      include: [
+        { model: Participant, as: 'participant' },
+        { model: Group, as: 'group' }
+      ]
+    });
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaction not found' });
+    }
+
+    const { lineClient } = await import('../services/lineClient.js');
+    const { buildApproveSlipFlexMessage } = await import('../services/flexMessages.js');
+
+    if (transaction.group && transaction.group.line_group_id && transaction.participant) {
+      let targetId = transaction.group.line_group_id;
+      if (targetId.startsWith('dm_')) {
+        targetId = transaction.participant.user_id;
+      }
+
+      await lineClient.pushMessage({
+        to: targetId,
+        messages: [buildApproveSlipFlexMessage(transaction.participant.display_name, transaction.amount)]
+      });
+    }
+
+    return res.status(200).json({ success: true, message: 'Notification sent successfully' });
+  } catch (err) {
+    return next(err);
+  }
+}

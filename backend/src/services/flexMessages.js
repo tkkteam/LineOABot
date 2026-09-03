@@ -151,3 +151,61 @@ export function buildRejectSlipFlexMessage(displayName) {
     }
   };
 }
+
+/** Approve Slip Flex Message (รับยอด) */
+export function buildApproveSlipFlexMessage(displayName, amount) {
+  const amountStr = amount ? `จำนวน ${amount} บาท` : 'เรียบร้อยแล้ว';
+  return {
+    type: 'flex',
+    altText: `✅ รับยอดของ ${displayName || 'ผู้ใช้'} เรียบร้อยแล้ว`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: '✅ รับยอดโอนเรียบร้อย',
+            weight: 'bold',
+            color: '#10B981',
+            size: 'lg',
+            align: 'center'
+          },
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          {
+            type: 'text',
+            text: `ผู้ใช้: ${displayName || 'คุณ'}`,
+            size: 'sm',
+            color: '#374151',
+            weight: 'bold',
+            align: 'center'
+          },
+          {
+            type: 'text',
+            text: `แอดมินได้รับยอดเงิน ${amountStr}`,
+            size: 'sm',
+            color: '#111827',
+            wrap: true,
+            margin: 'md',
+            align: 'center'
+          },
+          {
+            type: 'text',
+            text: 'ขอบคุณที่ใช้บริการครับ',
+            size: 'xs',
+            color: '#6B7280',
+            wrap: true,
+            margin: 'sm',
+            align: 'center'
+          }
+        ]
+      }
+    }
+  };
+}
