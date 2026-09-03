@@ -1,5 +1,5 @@
 import { Op, Sequelize } from 'sequelize';
-import { Participant, Group } from '../models/index.js';
+import { Participant, Group, Transaction } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { paginated, ok } from '../utils/apiResponse.js';
 import { cleanStr, parsePositiveInt } from '../utils/validators.js';
@@ -139,6 +139,16 @@ export async function approveSlip(req, res, next) {
     // อัปเดตให้เป็นจ่ายแล้ว
     participant.has_paid = true;
     await participant.save();
+
+    // บันทึกประวัติการรับยอดลงตาราง Transactions
+    await Transaction.create({
+      participant_id: participant.id,
+      group_id: participant.group_id,
+      amount: participant.slip_amount,
+      slip_image: participant.slip_image,
+      slip_timestamp: participant.slip_timestamp,
+      slip_ref: participant.slip_ref,
+    });
 
     return ok(res, participant, 'Slip approved successfully');
   } catch (err) {

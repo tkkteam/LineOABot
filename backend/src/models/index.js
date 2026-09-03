@@ -4,6 +4,7 @@ import Participant from './Participant.js';
 import Winner from './Winner.js';
 import Event from './Event.js';
 import Setting from './Setting.js';
+import Transaction from './Transaction.js';
 
 // ---------- Associations (ER relationships) ----------
 
@@ -19,4 +20,12 @@ Winner.belongsTo(Group, { foreignKey: 'group_id', as: 'group' });
 Group.hasMany(Event, { foreignKey: 'group_id', as: 'events', onDelete: 'CASCADE' });
 Event.belongsTo(Group, { foreignKey: 'group_id', as: 'group' });
 
-export { User, Group, Participant, Winner, Event, Setting };
+// Participant 1 --- N Transaction
+Participant.hasMany(Transaction, { foreignKey: 'participant_id', as: 'transactions', onDelete: 'CASCADE' });
+Transaction.belongsTo(Participant, { foreignKey: 'participant_id', as: 'participant' });
+
+// Group 1 --- N Transaction
+Group.hasMany(Transaction, { foreignKey: 'group_id', as: 'transactions', onDelete: 'CASCADE' });
+Transaction.belongsTo(Group, { foreignKey: 'group_id', as: 'group' });
+
+export { User, Group, Participant, Winner, Event, Setting, Transaction };

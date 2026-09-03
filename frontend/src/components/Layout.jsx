@@ -8,6 +8,7 @@ const NAV = [
   { to: '/winners', label: 'Winner History', icon: '🏆' },
   { to: '/groups', label: 'Groups', icon: '💬' },
   { to: '/slips', label: 'Verify Slips', icon: '🧾' },
+  { to: '/transactions', label: 'รายการโอนเงิน', icon: '💰' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 

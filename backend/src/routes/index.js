@@ -6,6 +6,7 @@ import winnerRoutes from './winner.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import groupRoutes from './group.routes.js';
 import settingRoutes from './setting.routes.js';
+import transactionRoutes from './transactionRoutes.js';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/winners', winnerRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/groups', groupRoutes);
 router.use('/settings', settingRoutes);
+router.use('/transactions', transactionRoutes);
 
 export default router;
