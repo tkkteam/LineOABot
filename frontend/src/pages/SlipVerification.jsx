@@ -84,9 +84,9 @@ export default function SlipVerification() {
               </div>
               
               <div className="p-4 flex-1 flex flex-col items-center">
-                <a href={`/uploads/slips/${slip.slip_image}`} target="_blank" rel="noreferrer">
+                <a href={slip.slip_image?.startsWith('http') ? slip.slip_image : `/uploads/slips/${slip.slip_image}`} target="_blank" rel="noreferrer">
                   <img 
-                    src={`/uploads/slips/${slip.slip_image}`} 
+                    src={slip.slip_image?.startsWith('http') ? slip.slip_image : `/uploads/slips/${slip.slip_image}`} 
                     alt="Slip" 
                     className="max-h-64 object-contain rounded mb-3 border hover:opacity-90 cursor-pointer"
                   />

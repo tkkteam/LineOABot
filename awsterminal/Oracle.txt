@@ -1,0 +1,106 @@
+ขั้นตอนการสร้างเครื่องและเชื่อมต่อจะคล้ายกับ AWS ที่คุณเคยใช้เลยครับ โดยมีขั้นตอนดังนี้:                                                                        
+                                                                                                                                             
+  ### ขั้นตอนที่ 1: สร้างเครื่อง Server (Compute Instance)                                                                                          
+                                                                                                                                             
+  1. เข้าไปที่เมนู Compute > Instances แล้วคลิกปุ่ม Create Instance                                                                                  
+  2. Name: ตั้งชื่อเครื่องตามต้องการ                                                                                                                
+  3. Image and Shape: (คลิก Edit)                                                                                                             
+      • Image: แนะนำให้เปลี่ยนเป็น Ubuntu (เช่นเวอร์ชัน 22.04) เพื่อให้สภาพแวดล้อมเหมือน AWS เครื่องเดิมของคุณ                                                
+      • Shape: เลือกรุ่นที่มีป้าย "Always Free-eligible"                                                                                            
+      (แนะนำ: ถ้าสร้างตัว Ampere A1 (ARM) ได้ ให้ปรับ CPU เป็น 4 และ RAM 24GB จะได้เครื่องฟรีที่สเปคแรงมาก แต่ถ้าโควต้าโซนนั้นเต็ม ให้เลือกเป็นตัว AMD Micro แทนครับ) 
+  4. Networking: ไม่ต้องแก้อะไร ตรวจสอบแค่ให้มีติ๊กถูกที่ Assign a public IPv4 address                                                                  
+  5. Add SSH keys (สำคัญมาก):                                                                                                                  
+      • เลือก Generate a key pair for me                                                                                                      
+      • คลิก Save private key (ระบบจะโหลดไฟล์ .key มาที่เครื่องคุณ เก็บไฟล์นี้ไว้ให้ดี ห้ามหายเด็ดขาด)                                                       
+  6. เลื่อนลงล่างสุดคลิก Create และรอจนสถานะเครื่องกลายเป็นสีเขียว (Running)                                                                           
+  7. คุณจะเห็นหมายเลข Public IP address ปรากฏขึ้นมา (จด IP นี้ไว้ครับ)                                                                               
+  ──────                                                                                                                                     
+  ### ขั้นตอนที่ 2: วิธีเชื่อมต่อผ่าน SSH (ด้วย Batch file ของคุณ)                                                                                       
+                                                                                                                                             
+  ระบบของ Oracle Cloud ฝั่ง Ubuntu จะใช้ user ว่า ubuntu เหมือน AWS เลยครับ                                                                        
+                                                                                                                                             
+  1. นำไฟล์ Private key ที่โหลดมาจากข้อ 5 (สมมติชื่อ ssh-key-2023-xxxx.key) ไปวางไว้ในโฟลเดอร์เดียวกับไฟล์ .bat ของคุณ                                     
+  2. คลิกขวาที่ไฟล์ .bat ตัวเดิม เลือก Edit และแก้ไขโค้ดเป็นดังนี้:                                                                                       
+                                                                                                                                             
+    @echo off                                                                                                                                
+    ssh -i "ssh-key-2023-xxxx.key" ubuntu@เลข_IP_ของ_Oracle                                                                                  
+    pause                                                                                                                                    
+                                                                                                                                             
+  (อย่าลืมเปลี่ยนชื่อไฟล์ .key และ เลข IP ให้ตรงกับของคุณนะครับ)                                                                                        
+                                                                                                                                             
+  3. ดับเบิ้ลคลิกไฟล์ .bat เพื่อเชื่อมต่อได้เลย! (ตอนเข้าครั้งแรก ระบบจะถาม Are you sure you want to continue connecting (yes/no)? ให้พิมพ์ yes แล้วกด Enter)  
+  ──────                                                                                                                                     
+  ### ขั้นตอนที่ 3: เปิด Port 80 และ 443 (ให้คนเข้าเว็บได้)                                                                                           
+                                                                                                                                             
+  ใน Oracle Cloud ระบบจะบล็อกการเข้าถึงเว็บไว้เป็นค่าเริ่มต้น ต้องไปปลดล็อก 2 ที่ครับ:                                                                      
+                                                                                                                                             
+  เปิดผ่านหน้าเว็บ Oracle Cloud (Security List):                                                                                                 
+                                                                                                                                             
+  1. ในหน้ารายละเอียด Instance ของคุณ เลื่อนลงมาล่างสุดแท็บฝั่งซ้ายคลิก Attached VNICs                                                                   
+  2. คลิกที่ชื่อ Subnet (ตัวหนังสือสีฟ้า)                                                                                                              
+  3. คลิกที่ Security Lists (เช่น Default Security List...)                                                                                      
+  4. คลิกปุ่ม Add Ingress Rules                                                                                                                 
+  5. ใส่ค่าดังนี้:                                                                                                                                
+      • Source CIDR: 0.0.0.0/0                                                                                                               
+      • Destination Port Range: 80                                                                                                           
+      • (กด Add Ingress Rules อีกครั้ง แล้วทำซ้ำเหมือนเดิม แต่เปลี่ยน Port เป็น 443 ครับ)                                                                  
+                                                                                                                                             
+                                                                                                                                             
+  เปิดในตัว Ubuntu (พิมพ์คำสั่งผ่านหน้าต่าง SSH ที่เชื่อมต่อแล้ว):                                                                                           
+  เนื่องจาก Image Ubuntu ของ Oracle Cloud มีระบบ Firewall (iptables) ซ้อนไว้อีกชั้น ให้รัน 3 คำสั่งนี้ครับ:                                                  
+                                                                                                                                             
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT                                                                
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT                                                               
+    sudo netfilter-persistent save                                                                                                           
+                                                                                                                                             
+  เท่านี้เครื่อง Server ใหม่ของคุณก็พร้อมให้ ติดตั้ง Docker และนำโค้ดขึ้นไปรันแล้วครับ! หากเชื่อมต่อสำเร็จแล้วแจ้งผมได้เลยนะครับ ผมจะแนะนำวิธีนำโปรเจกต์ไปลงให้ต่อครับ  
+
+  ### ขั้นตอนที่ 1: ติดตั้ง Git และ Docker                                                                                                          
+                                                                                                                                             
+  ก็อปปี้คำสั่งเหล่านี้ไปรันทีละบรรทัดบนเซิร์ฟเวอร์ครับ:                                                                                                     
+                                                                                                                                             
+    # 1. ติดตั้ง Git                                                                                                                            
+    sudo dnf install git -y                                                                                                                  
+                                                                                                                                             
+    # 2. เพิ่มคลังแอปพลิเคชัน (Repository) ของ Docker สำหรับ Oracle Linux (CentOS-based)                                                            
+    sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo                                               
+                                                                                                                                             
+    # 3. ติดตั้ง Docker และ Docker Compose Plugin                                                                                               
+    sudo dnf install docker-ce docker-ce-cli containerd.io docker-compose-plugin -y                                                          
+                                                                                                                                             
+    # 4. เปิดระบบให้ Docker ทำงานทันที และให้รันอัตโนมัติทุกครั้งที่รีสตาร์ทเครื่อง                                                                             
+    sudo systemctl enable --now docker                                                                                                       
+                                                                                                                                             
+    # 5. อนุญาตให้ User ปัจจุบัน (opc) สั่งงาน Docker ได้โดยไม่ต้องพิมพ์ sudo นำหน้า                                                                       
+    sudo usermod -aG docker $USER                                                                                                            
+                                                                                                                                             
+  (💡 ทริค: หลังจากรันบรรทัดสุดท้ายเสร็จ แนะนำให้พิมพ์ exit เพื่อออกจาก SSH 1 รอบ แล้วเชื่อมต่อเข้าไปใหม่ เพื่อให้สิทธิ์ของ User อัปเดตครับ)                            
+  ──────                                                                                                                                     
+  ### ขั้นตอนที่ 2: ดึงโค้ดจาก GitHub (Git Clone)                                                                                                  
+                                                                                                                                             
+  เมื่อกลับเข้ามาใหม่ ให้รันคำสั่งดึงโค้ดจากโปรเจกต์ของคุณครับ:                                                                                             
+                                                                                                                                             
+    git clone https://github.com/tkkteam/LineOABot.git                                                                                       
+                                                                                                                                             
+  (หมายเหตุ: หากโปรเจกต์ใน GitHub เป็นแบบ Private ระบบจะถาม Username และรหัสผ่าน ซึ่งปัจจุบัน GitHub บังคับให้ใส่รหัสผ่านเป็น Personal Access Token (PAT)     
+  แทนรหัสผ่านปกติแล้วนะครับ)                                                                                                                      
+  ──────                                                                                                                                     
+  ### ขั้นตอนที่ 3: จัดการไฟล์ .env และรันระบบ                                                                                                      
+                                                                                                                                             
+  เนื่องจากไฟล์ .env ปกติจะไม่ถูกเอาขึ้น GitHub ไปด้วย (ตามหลักความปลอดภัย) คุณจะต้องสร้างไฟล์นี้บนเซิร์ฟเวอร์ใหม่ครับ                                             
+                                                                                                                                             
+    # 1. เข้าไปในโฟลเดอร์โปรเจกต์                                                                                                               
+    cd LineOABot                                                                                                                             
+                                                                                                                                             
+    # 2. สร้างและแก้ไขไฟล์ .env (ให้ก็อปปี้ข้อมูล .env จากเครื่องคุณ ไปคลิกขวาวางในหน้าต่างนี้ แล้วกด Ctrl+X -> พิมพ์ Y -> กด Enter เพื่อเซฟ)                      
+    nano .env                                                                                                                                
+                                                                                                                                             
+    # 3. สั่งรันระบบ (ผมเห็นว่าคุณมีไฟล์ prod ด้วย ดังนั้นให้เลือกรันไฟล์ prod เพื่อใช้งานจริงครับ)                                                               
+    docker compose -f docker-compose.prod.yml up -d --build                                                                                  
+                                                                                                                                             
+  เสร็จสมบูรณ์! ระบบของคุณจะเริ่มดาวน์โหลด Image และรันขึ้นมาเหมือนที่เคยรันบน AWS ทุกประการครับ                                                             
+                                                                                                                                             
+  (📝 อย่าลืม: เมื่อระบบรันแล้ว ต้องไปอัปเดต Webhook URL ในหน้าเว็บ LINE Developers Console ให้ชี้มาที่ Public IP ใหม่ของ Oracle Cloud ด้วยนะครับ              
+  บอทถึงจะทำงานได้ปกติ)                                                                                                                          
+                                                                                                                                             
+  ติดขัดปัญหาตรงไหน เช่น ลง Docker ไม่ผ่าน หรือติดปัญหา Login GitHub แจ้งผมได้ทันทีครับ! 

@@ -138,7 +138,7 @@ export default function Transactions() {
                     <td className="px-4 py-3 text-center">
                       {tx.slip_image ? (
                         <a
-                          href={`/uploads/slips/${tx.slip_image}`}
+                          href={tx.slip_image?.startsWith('http') ? tx.slip_image : `/uploads/slips/${tx.slip_image}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-brand-600 hover:underline"

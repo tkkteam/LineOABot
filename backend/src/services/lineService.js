@@ -9,6 +9,7 @@ import FormData from 'form-data';
 import config from '../config/index.js';
 import fs from 'fs';
 import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
 
 const HELP_TEXT = [
   '🤖 ระบบจับสลากและวงล้อสุ่มรายชื่อ',
@@ -507,7 +508,22 @@ async function handleSlipImage(event) {
       if (slipTs) participant.slip_timestamp = slipTs;
       if (slipData?.amount) participant.slip_amount = slipData.amount;
       if (slipData?.transRef) participant.slip_ref = slipData.transRef;
-      if (fileName) participant.slip_image = fileName; // บันทึกชื่อไฟล์รูปลง DB เพื่อไปโชว์ในเว็บ
+      
+      let finalSlipImage = fileName;
+      if (process.env.CLOUDINARY_URL) {
+        try {
+          const uploadResult = await cloudinary.uploader.upload(filePath, { folder: 'linebot_slips' });
+          finalSlipImage = uploadResult.secure_url;
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          logger.info('[slip] Uploaded to Cloudinary', { url: finalSlipImage });
+        } catch (uploadErr) {
+          logger.error('[slip] Cloudinary upload failed', { message: uploadErr.message });
+        }
+      }
+      
+      if (finalSlipImage) participant.slip_image = finalSlipImage; // บันทึกชื่อไฟล์รูปหรือ URL ลง DB เพื่อไปโชว์ในเว็บ
       await participant.save();
     }
 
