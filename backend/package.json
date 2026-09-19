@@ -25,8 +25,10 @@
     "form-data": "^4.0.6",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "jsqr": "^1.4.0",
     "mysql2": "^3.23.3",
     "sequelize": "^6.37.8",
+    "sharp": "^0.35.4",
     "xss": "^1.0.15"
   },
   "devDependencies": {

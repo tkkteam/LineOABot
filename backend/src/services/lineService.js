@@ -4,6 +4,7 @@ import { spinForGroup } from './wheelService.js';
 import { getSetting } from './settingsService.js';
 import { buildWinnerFlexMessage, textMessage } from './flexMessages.js';
 import { logger } from '../utils/logger.js';
+import { parseSlipQR, getBankName } from '../utils/slipParser.js';
 import axios from 'axios';
 import FormData from 'form-data';
 import config from '../config/index.js';
@@ -290,202 +291,172 @@ async function handleSlipImage(event) {
     let slipData = null;
     let buildReceiptFlex;
 
-    // ตรวจสอบสลิปด้วย SlipOK API
-    if (config.slipok && config.slipok.branchId && config.slipok.apiKey) {
-      try {
-        const form = new FormData();
-        form.append('files', fs.createReadStream(filePath));
-
-        const slipResponse = await axios.post(
-          `https://api.slipok.com/api/line/apikey/${config.slipok.branchId}`,
-          form,
-          {
-            headers: {
-              'x-authorization': config.slipok.apiKey,
-              ...form.getHeaders()
-            }
-          }
-        );
-        slipData = slipResponse.data?.data;
-        logger.info('[slip] SlipOK verification passed', { userId });
-
-        // ตรวจสอบสลิปซ้ำ (Duplicate Slip Check)
-        if (slipData?.transRef) {
-          const existingParticipantSlip = await Participant.findOne({ where: { slip_ref: slipData.transRef } });
-          const existingTransactionSlip = await Transaction.findOne({ where: { slip_ref: slipData.transRef } });
-          
-          if (existingParticipantSlip || existingTransactionSlip) {
-            // ลบรูปที่โหลดมาทิ้งเพราะซ้ำ
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-            await lineClient.replyMessage({ 
-              replyToken, 
-              messages: [{ type: 'text', text: '❌ สลิปนี้ถูกใช้งานไปแล้ว ไม่สามารถส่งซ้ำได้' }] 
-            });
-            return;
-          }
+    // ตรวจสอบสลิปด้วย Local QR Parser (Thai Bank EMVCo Mini QR)
+    try {
+      const qrResult = await parseSlipQR(filePath);
+      
+      if (!qrResult.success) {
+        logger.info('[slip] Image does not contain Thai Bank QR code', { userId, message: qrResult.message });
+        if (isDirectMessage) {
+          await replyText(replyToken, '❌ ไม่พบ QR Code บนสลิป กรุณาส่งรูปสลิปที่มี QR Code ชัดเจน');
         }
-        
-        const getBankName = (code) => {
-          const banks = { '002':'ธ.กรุงเทพ','004':'ธ.กสิกรไทย','006':'ธ.กรุงไทย','011':'ทีทีบี','014':'ธ.ไทยพาณิชย์','025':'ธ.กรุงศรี','030':'ธ.ออมสิน','033':'ธอส.','034':'ธ.ก.ส.' };
-          return banks[code] || code || 'บัญชีธนาคาร/พร้อมเพย์';
-        };
-
-        buildReceiptFlex = (isWarning) => {
-          const color = isWarning ? '#FF9800' : '#1DB446';
-          const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ แจ้งโอนเงินสำเร็จ';
-          
-          const senderName = slipData?.sender?.displayName || displayName;
-          const senderAcc = slipData?.sender?.account?.value || 'ไม่ระบุ';
-          const senderBank = getBankName(slipData?.sendingBank);
-          
-          const receiverName = slipData?.receiver?.displayName || '-';
-          const receiverAcc = slipData?.receiver?.account?.value || '-';
-          const receiverBank = getBankName(slipData?.receivingBank);
-          
-          const amountStr = slipData?.amount ? `${slipData.amount} บาท` : 'กำลังตรวจสอบ';
-          
-          let slipTsLocal = '';
-          if (slipData?.transDate && slipData?.transTime) {
-            const d = slipData.transDate;
-            const formattedDate = d.length === 8 ? `${d.substring(6,8)}/${d.substring(4,6)}/${d.substring(0,4)}` : d;
-            slipTsLocal = `${formattedDate} (${slipData.transTime.substring(0, 5)})`;
-          }
-          const dateStr = slipTsLocal ? `วันที่โอน ${slipTsLocal}` : '';
-
-          return {
-            type: 'flex',
-            altText: `แจ้งโอนเงินจาก ${displayName}`,
-            contents: {
-              type: 'bubble',
-              size: 'mega',
-              body: {
-                type: 'box',
-                layout: 'vertical',
-                spacing: 'md',
-                contents: [
-                  {
-                    type: 'text',
-                    text: statusText,
-                    weight: 'bold',
-                    color: color,
-                    size: 'lg'
-                  },
-                  {
-                    type: 'text',
-                    text: amountStr,
-                    size: '3xl',
-                    weight: 'bold',
-                    color: '#111111'
-                  },
-                  {
-                    type: 'text',
-                    text: dateStr,
-                    size: 'xs',
-                    color: '#888888',
-                    margin: 'sm'
-                  },
-                  {
-                    type: 'separator',
-                    margin: 'lg'
-                  },
-                  {
-                    type: 'box',
-                    layout: 'horizontal',
-                    margin: 'lg',
-                    contents: [
-                      {
-                        type: 'text',
-                        text: 'ผู้โอน',
-                        color: '#888888',
-                        size: 'sm',
-                        flex: 1
-                      },
-                      {
-                        type: 'box',
-                        layout: 'vertical',
-                        flex: 3,
-                        contents: [
-                          { type: 'text', text: senderName, size: 'sm', weight: 'bold', color: '#111111' },
-                          { type: 'text', text: senderBank, size: 'xs', color: '#888888' },
-                          { type: 'text', text: senderAcc, size: 'xs', color: '#888888' }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    type: 'box',
-                    layout: 'horizontal',
-                    margin: 'md',
-                    contents: [
-                      {
-                        type: 'text',
-                        text: 'ผู้รับ',
-                        color: '#888888',
-                        size: 'sm',
-                        flex: 1
-                      },
-                      {
-                        type: 'box',
-                        layout: 'vertical',
-                        flex: 3,
-                        contents: [
-                          { type: 'text', text: receiverName, size: 'sm', weight: 'bold', color: '#111111' },
-                          { type: 'text', text: receiverBank, size: 'xs', color: '#888888' },
-                          { type: 'text', text: receiverAcc, size: 'xs', color: '#888888' }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    type: 'separator',
-                    margin: 'lg'
-                  },
-                  {
-                    type: 'text',
-                    text: 'แอดมินจะทำการตรวจสอบและอนุมัติยอดเงินนี้',
-                    size: 'xxs',
-                    color: '#aaaaaa',
-                    wrap: true,
-                    align: 'center',
-                    margin: 'md'
-                  }
-                ]
-              }
-            }
-          };
-        };
-
-        // ตรวจสอบวันที่ของสลิปว่าเป็นสลิปเก่าหรือไม่
-        if (slipData && slipData.transDate) {
-          const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-          const d = today.getDate().toString().padStart(2, '0');
-          const m = (today.getMonth() + 1).toString().padStart(2, '0');
-          const y = today.getFullYear().toString();
-          const todayStr = `${y}${m}${d}`; // รูปแบบ YYYYMMDD
-          
-          if (slipData.transDate !== todayStr) {
-            const warningFlex = buildReceiptFlex(true);
-            
-            // ส่งข้อความเตือนแบบ Flex
-            await lineClient.replyMessage({ replyToken, messages: [warningFlex] });
-            
-            // ตั้งค่านี้เพื่อให้ระบบด้านล่างรู้ว่าไม่ต้องส่ง Flex Message ซ้ำ
-            slipData.isOldSlipWarningSent = true;
-          }
-        }
-
-      } catch (err) {
-        // หาก API แจ้งว่าไม่ใช่สลิป หรือสลิปไม่ถูกต้อง (เช่น ไม่มี QR Code) 
-        // ให้หยุดการทำงานและไม่ตอบกลับใดๆ (เพื่อให้คนส่งรูปปกติเล่นกันได้ ไม่รำคาญบอท)
-        const slipError = err.response?.data || err.message;
-        logger.error('[slip] SlipOK verification failed', { userId, slipError });
-        return; 
+        return;
       }
-    } else {
-      // หากยังไม่ได้ใส่ API Key ของ SlipOK บอทจะไม่รู้ว่ารูปไหนคือสลิป 
-      // ระบบจะอนุโลมตอบกลับทุกรูปไปก่อนจนกว่าจะใส่ API Key (หรือถ้าอยากให้เงียบไปเลย สามารถมาแก้โค้ดตรงนี้ให้ return; ได้ครับ)
+
+      slipData = qrResult.qrData;
+      logger.info('[slip] Slip QR decoded successfully', { userId, transRef: slipData?.transRef, bank: slipData?.sendingBank });
+
+      // ตรวจสอบสลิปซ้ำ (Duplicate Slip Check)
+      if (slipData?.transRef) {
+        const existingParticipantSlip = await Participant.findOne({ where: { slip_ref: slipData.transRef } });
+        const existingTransactionSlip = await Transaction.findOne({ where: { slip_ref: slipData.transRef } });
+        
+        if (existingParticipantSlip || existingTransactionSlip) {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          await lineClient.replyMessage({ 
+            replyToken, 
+            messages: [{ type: 'text', text: '❌ สลิปนี้ถูกใช้งานไปแล้ว ไม่สามารถส่งซ้ำได้' }] 
+          });
+          return;
+        }
+      }
+
+      buildReceiptFlex = (isWarning) => {
+        const color = isWarning ? '#FF9800' : '#1DB446';
+        const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ บันทึกสลิปสำเร็จ';
+        
+        const senderName = displayName || 'ผู้ส่งสลิป';
+        const senderBank = getBankName(slipData?.sendingBank);
+        const refText = slipData?.transRef || 'ไม่พบรหัสอ้างอิง';
+        const amountStr = slipData?.amount ? `${slipData.amount} บาท` : 'รอแอดมินยืนยันยอด';
+        
+        let slipTsLocal = '';
+        if (slipData?.transDate) {
+          const d = slipData.transDate;
+          const formattedDate = d.length === 8 ? `${d.substring(6,8)}/${d.substring(4,6)}/${d.substring(0,4)}` : d;
+          slipTsLocal = `วันที่โอน ${formattedDate}`;
+        }
+
+        return {
+          type: 'flex',
+          altText: `แจ้งโอนเงินจาก ${displayName}`,
+          contents: {
+            type: 'bubble',
+            size: 'mega',
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: statusText,
+                  weight: 'bold',
+                  color: color,
+                  size: 'lg'
+                },
+                {
+                  type: 'text',
+                  text: amountStr,
+                  size: '2xl',
+                  weight: 'bold',
+                  color: '#111111'
+                },
+                ...(slipTsLocal ? [{
+                  type: 'text',
+                  text: slipTsLocal,
+                  size: 'xs',
+                  color: '#888888',
+                  margin: 'sm'
+                }] : []),
+                {
+                  type: 'separator',
+                  margin: 'lg'
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'lg',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: 'ผู้ส่งสลิป',
+                      color: '#888888',
+                      size: 'sm',
+                      flex: 1
+                    },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 3,
+                      contents: [
+                        { type: 'text', text: senderName, size: 'sm', weight: 'bold', color: '#111111' },
+                        { type: 'text', text: senderBank, size: 'xs', color: '#0070BA' }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'md',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: 'รหัสอ้างอิง',
+                      color: '#888888',
+                      size: 'xs',
+                      flex: 1
+                    },
+                    {
+                      type: 'text',
+                      text: refText,
+                      size: 'xs',
+                      color: '#666666',
+                      flex: 3,
+                      wrap: true
+                    }
+                  ]
+                },
+                {
+                  type: 'separator',
+                  margin: 'lg'
+                },
+                {
+                  type: 'text',
+                  text: 'แอดมินจะทำการตรวจสอบและอนุมัติยอดเงินนี้ในระบบ',
+                  size: 'xxs',
+                  color: '#aaaaaa',
+                  wrap: true,
+                  align: 'center',
+                  margin: 'md'
+                }
+              ]
+            }
+          }
+        };
+      };
+
+      // ตรวจสอบวันที่ของสลิปว่าเป็นสลิปเก่าหรือไม่
+      if (slipData?.transDate) {
+        const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+        const d = today.getDate().toString().padStart(2, '0');
+        const m = (today.getMonth() + 1).toString().padStart(2, '0');
+        const y = today.getFullYear().toString();
+        const todayStr = `${y}${m}${d}`;
+        
+        if (slipData.transDate !== todayStr) {
+          const warningFlex = buildReceiptFlex(true);
+          await lineClient.replyMessage({ replyToken, messages: [warningFlex] });
+          slipData.isOldSlipWarningSent = true;
+        }
+      }
+
+    } catch (err) {
+      logger.error('[slip] Local slip QR decoding error', { userId, error: err.message });
+      return;
     }
 
     // อัปเดตข้อมูลสลิป แต่ให้แอดมินยืนยันก่อน (has_paid = false)
