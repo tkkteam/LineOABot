@@ -13,11 +13,37 @@ async function getOCRWorker() {
   return ocrWorker;
 }
 
-const BANK_NAME_KEYWORDS = [
-  'กสิกรไทย', 'กรุงเทพ', 'กรุงไทย', 'ไทยพาณิชย์', 'กรุงศรี', 'ทหารไทย', 'ทีทีบี',
-  'ออมสิน', 'ธอส', 'ธ.ก.ส', 'เกียรตินาคิน', 'ทิสโก้', 'ซีไอเอ็มบี', 'ยูโอบี', 'แลนด์ แอนด์ เฮ้าส์',
-  'ไอซีบีซี', 'พร้อมเพย์', 'ทรูมันนี่', 'KBANK', 'SCB', 'BBL', 'KTB', 'TTB', 'BAY', 'GSB', 'KKP'
-];
+export const BANK_DISPLAY_NAMES = {
+  'กสิกรไทย': 'ธ.กสิกรไทย (KBANK)',
+  'KBANK': 'ธ.กสิกรไทย (KBANK)',
+  'กรุงเทพ': 'ธ.กรุงเทพ (BBL)',
+  'BBL': 'ธ.กรุงเทพ (BBL)',
+  'กรุงไทย': 'ธ.กรุงไทย (KTB)',
+  'KTB': 'ธ.กรุงไทย (KTB)',
+  'ไทยพาณิชย์': 'ธ.ไทยพาณิชย์ (SCB)',
+  'SCB': 'ธ.ไทยพาณิชย์ (SCB)',
+  'กรุงศรี': 'ธ.กรุงศรี (BAY)',
+  'BAY': 'ธ.กรุงศรี (BAY)',
+  'ทีทีบี': 'ทีทีบี (ttb)',
+  'ทหารไทย': 'ทีทีบี (ttb)',
+  'TTB': 'ทีทีบี (ttb)',
+  'ออมสิน': 'ธ.ออมสิน (GSB)',
+  'GSB': 'ธ.ออมสิน (GSB)',
+  'ธอส': 'ธอส. (GHB)',
+  'ธ.ก.ส': 'ธ.ก.ส. (BAAC)',
+  'เกียรตินาคิน': 'ธ.เกียรตินาคินภัทร (KKP)',
+  'KKP': 'ธ.เกียรตินาคินภัทร (KKP)',
+  'ทิสโก้': 'ธ.ทิสโก้ (TISCO)',
+  'TISCO': 'ธ.ทิสโก้ (TISCO)',
+  'ซีไอเอ็มบี': 'ธ.ซีไอเอ็มบี (CIMB)',
+  'ยูโอบี': 'ธ.ยูโอบี (UOB)',
+  'UOB': 'ธ.ยูโอบี (UOB)',
+  'แลนด์ แอนด์ เฮ้าส์': 'LH Bank',
+  'พร้อมเพย์': 'พร้อมเพย์ (PromptPay)',
+  'ทรูมันนี่': 'ทรูมันนี่ วอลเล็ท',
+};
+
+const BANK_NAME_KEYWORDS = Object.keys(BANK_DISPLAY_NAMES);
 
 /**
  * Extract transfer amount, date, sender, and receiver details from slip image using OCR
@@ -83,11 +109,10 @@ export async function extractDetailsFromSlip(imagePath) {
         foundAccounts.push(line.replace(/[^0-9]/g, ''));
       }
 
-      // 3. Detect Bank Name
+      // 3. Detect Bank Name and map to clean display name
       const matchedBank = BANK_NAME_KEYWORDS.find(b => line.includes(b));
       if (matchedBank) {
-        let cleanBank = line.replace(/[^ก-ฮะ-์a-zA-Z0-9\s.]/g, '').trim();
-        foundBanks.push(cleanBank);
+        foundBanks.push(BANK_DISPLAY_NAMES[matchedBank]);
       }
 
       // 4. Detect "จาก" / "ผู้โอน"

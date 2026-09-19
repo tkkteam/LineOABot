@@ -328,7 +328,7 @@ async function handleSlipImage(event) {
         const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ แจ้งโอนเงินสำเร็จ';
         
         const senderName = slipData?.sender?.name || displayName || 'ผู้โอน';
-        const senderBank = slipData?.sender?.bank || getBankName(slipData?.sendingBank);
+        const senderBank = (slipData?.sendingBank ? getBankName(slipData.sendingBank) : null) || slipData?.sender?.bank || 'ธนาคารต้นทาง';
         const senderAcc = slipData?.sender?.account || 'xxx-x-x';
         
         const receiverName = slipData?.receiver?.name || 'บัญชีรับโอน';
