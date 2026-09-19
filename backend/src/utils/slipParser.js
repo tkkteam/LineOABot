@@ -1,7 +1,68 @@
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import fs from 'fs';
+import { createWorker } from 'tesseract.js';
 import { logger } from './logger.js';
+
+let ocrWorker = null;
+
+async function getOCRWorker() {
+  if (!ocrWorker) {
+    ocrWorker = await createWorker('eng');
+  }
+  return ocrWorker;
+}
+
+/**
+ * Extract transfer amount from slip image using OCR
+ */
+export async function extractAmountFromImage(imagePath) {
+  try {
+    const worker = await getOCRWorker();
+    const ret = await worker.recognize(imagePath);
+    const text = ret.data?.text || '';
+    
+    const lines = text.split('\n');
+    const candidates = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const matches = line.matchAll(/([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2})/g);
+      for (const match of matches) {
+        const val = parseFloat(match[1].replace(/,/g, ''));
+        if (isNaN(val) || val <= 0) continue; // Ignore 0.00 fee
+        
+        let score = 0;
+        const context = (line + ' ' + (lines[i - 1] || '') + ' ' + (lines[i + 1] || '')).toLowerCase();
+        
+        // High confidence: line contains Thai baht representation ("Un", "umn", "บาท", "baht", "thb")
+        if (/[u|U][n|m|N|M]/.test(line) || /บาท|baht|thb|บ\./i.test(line)) {
+          score += 10;
+        }
+        
+        // Context contains amount indicators
+        if (/จำนวน|amount|ยอด|transfer/i.test(context)) {
+          score += 5;
+        }
+        
+        // Penalize date/time lines
+        if (/[0-9]{1,2}\.[0-9]{1,2}\./.test(line) && !/[u|U][n|m]/.test(line)) {
+          score -= 10;
+        }
+        
+        candidates.push({ val, score, raw: match[1] });
+      }
+    }
+    
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.score - a.score);
+      return candidates[0].val;
+    }
+  } catch (err) {
+    logger.warn('[slipParser] OCR amount extraction failed', { message: err.message });
+  }
+  return null;
+}
 
 export const BANK_CODES = {
   '002': 'ธ.กรุงเทพ (BBL)',
@@ -88,10 +149,8 @@ export function decodeThaiSlipPayload(rawText) {
   }
 
   // 2. Check Sub-TLVs (Sub-tag 0046 or Tag 00 / 51 / 29 / 30 / 31)
-  // Thai Bank Slip standard uses Tag 00 (length 46 or similar) or Tag 51 for Transfer Sub-TLV
   const subTlvCandidates = [];
 
-  // If Tag 00 is an array (multiple 00 tags) or has length > 2
   if (Array.isArray(rootTLV['00'])) {
     for (const val of rootTLV['00']) {
       if (val.length > 2) subTlvCandidates.push(val);
@@ -100,7 +159,6 @@ export function decodeThaiSlipPayload(rawText) {
     subTlvCandidates.push(rootTLV['00']);
   }
 
-  // Also check tags 51, 29, 30, 31, 91
   ['51', '29', '30', '31', '91'].forEach((tag) => {
     if (rootTLV[tag]) {
       if (Array.isArray(rootTLV[tag])) {
@@ -147,7 +205,6 @@ export function decodeThaiSlipPayload(rawText) {
     }
   }
 
-  // If we couldn't parse structured EMVCo, but it's a valid QR string
   return {
     raw: rawText,
     transRef: transRef || (rawText.length >= 8 ? rawText.substring(0, 35) : null),
@@ -196,6 +253,16 @@ export async function parseSlipQR(imagePath) {
       if (qrCode && qrCode.data) {
         logger.info(`[slipParser] QR detected on pass ${pass + 1}`, { length: qrCode.data.length });
         const decoded = decodeThaiSlipPayload(qrCode.data);
+        
+        // If amount is not embedded in QR code, scan with OCR
+        if (!decoded.amount) {
+          const ocrAmount = await extractAmountFromImage(imagePath);
+          if (ocrAmount) {
+            decoded.amount = ocrAmount;
+            logger.info('[slipParser] Amount extracted from image via OCR', { amount: ocrAmount });
+          }
+        }
+
         return {
           success: true,
           qrData: decoded,
@@ -213,3 +280,4 @@ export async function parseSlipQR(imagePath) {
     message: 'ไม่พบ QR Code ในรูปภาพสลิป'
   };
 }
+

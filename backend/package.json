@@ -29,6 +29,7 @@
     "mysql2": "^3.23.3",
     "sequelize": "^6.37.8",
     "sharp": "^0.35.4",
+    "tesseract.js": "^7.0.0",
     "xss": "^1.0.15"
   },
   "devDependencies": {
