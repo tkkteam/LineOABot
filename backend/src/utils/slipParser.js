@@ -90,14 +90,32 @@ export async function extractDetailsFromSlip(imagePath) {
         foundBanks.push(cleanBank);
       }
 
-      // 4. Detect Person / Company Name
-      const nameMatch = line.match(/(นาย|นางสาว|นาง|บจก\.|บริษัท|หจก\.|Mr\.|Mrs\.|Ms\.)\s*([\u0E01-\u0E5B\s]+)/);
+      // 4. Detect "จาก" / "ผู้โอน"
+      const fromMatch = line.match(/(?:จาก|ผู้โอน)\s*[@]?\s*(.+)/);
+      if (fromMatch) {
+        let candidate = fromMatch[1].replace(/[^ก-ฮะ-์a-zA-Z\s.]/g, '').trim();
+        if (candidate.length >= 3) {
+          result.sender.name = candidate;
+        }
+      }
+
+      // 5. Detect "ไปยัง" / "ถึง" / "ผู้รับ"
+      const toMatch = line.match(/(?:ไปยัง|ถึง|ผู้รับ|โอนให้)\s*[@]?\s*(.+)/);
+      if (toMatch) {
+        let candidate = toMatch[1].replace(/[^ก-ฮะ-์a-zA-Z\s.]/g, '').trim();
+        if (candidate.length >= 3) {
+          result.receiver.name = candidate;
+        }
+      }
+
+      // 6. Detect Person / Company Name
+      const nameMatch = line.match(/(นาย|นางสาว|นาง|น\.ส\.|บจก\.|บริษัท|หจก\.|Mr\.|Mrs\.|Ms\.)\s*([\u0E01-\u0E5B\s.]+)/);
       if (nameMatch) {
         let cleanName = nameMatch[0].trim().replace(/[^\u0E01-\u0E5B\s.]/g, '').trim();
         foundNames.push(cleanName);
       }
 
-      // 5. Detect Date/Time text (e.g. 19/09/2026 11:03 or 19 ก.ย. 69)
+      // 7. Detect Date/Time text (e.g. 19/09/2026 11:03 or 19 ก.ย. 69)
       if (!result.dateStr && /[0-9]{1,2}\s*(?:\/|-|\.|\s)\s*(?:[0-9]{1,2}|[ก-ฮ]{2,4}\.?)\s*(?:\/|-|\.|\s)\s*[0-9]{2,4}/.test(line)) {
         const timeMatch = line.match(/[0-9]{1,2}:[0-9]{2}/);
         const timeStr = timeMatch ? ` (${timeMatch[0]})` : '';
@@ -113,17 +131,18 @@ export async function extractDetailsFromSlip(imagePath) {
       result.amount = amountCandidates[0].val;
     }
 
-    result.sender = {
-      name: foundNames[0] || null,
-      bank: foundBanks[0] || null,
-      account: foundAccounts[0] || null
-    };
+    if (!result.sender.name && foundNames.length > 0) {
+      result.sender.name = foundNames[0];
+    }
+    if (!result.receiver.name && foundNames.length > 1) {
+      result.receiver.name = foundNames[1];
+    }
 
-    result.receiver = {
-      name: foundNames[1] || null,
-      bank: foundBanks[1] || null,
-      account: foundAccounts[1] || null
-    };
+    result.sender.bank = result.sender.bank || foundBanks[0] || null;
+    result.sender.account = result.sender.account || foundAccounts[0] || null;
+
+    result.receiver.bank = result.receiver.bank || foundBanks[1] || null;
+    result.receiver.account = result.receiver.account || foundAccounts[1] || null;
 
   } catch (err) {
     logger.warn('[slipParser] OCR details extraction failed', { message: err.message });
