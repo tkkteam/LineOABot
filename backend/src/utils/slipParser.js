@@ -43,6 +43,93 @@ export const BANK_DISPLAY_NAMES = {
   'ทรูมันนี่': 'ทรูมันนี่ วอลเล็ท',
 };
 
+export const THAI_MONTH_MAP = [
+  { match: /(?:ม\.?ค\.?|มกราคม|u\.?A\.?|ม\.?A\.?)/i, month: '01', name: 'ม.ค.' },
+  { match: /(?:ก\.?พ\.?|กุมภาพันธ์|n\.?w\.?|ก\.?w\.?)/i, month: '02', name: 'ก.พ.' },
+  { match: /(?:มี\.?ค\.?|มีนาคม|มี\.?A\.?)/i, month: '03', name: 'มี.ค.' },
+  { match: /(?:เม\.?ย\.?|เมษายน|เม\.?1|เม\.?l)/i, month: '04', name: 'เม.ย.' },
+  { match: /(?:พ\.?ค\.?|พฤษภาคม|w\.?A\.?|พ\.?A\.?|w\.?ค\.?)/i, month: '05', name: 'พ.ค.' },
+  { match: /(?:มิ\.?ย\.?|มิถุนายน|มิ\.?1|มิ\.?l)/i, month: '06', name: 'มิ.ย.' },
+  { match: /(?:ก\.?ค\.?|กรกฎาคม|n\.?A\.?|ก\.?A\.?)/i, month: '07', name: 'ก.ค.' },
+  { match: /(?:ส\.?ค\.?|สิงหาคม|a\.?A\.?|a\.?ค\.?|ส\.?A\.?)/i, month: '08', name: 'ส.ค.' },
+  { match: /(?:ก\.?ย\.?|กันยายน|n\.?1|n\.?l|ก\.?1|ก\.?l|n\.?ย|กุย\.)/i, month: '09', name: 'ก.ย.' },
+  { match: /(?:ต\.?ค\.?|ตุลาคม|ต\.?A\.?|a\.?ค\.?)/i, month: '10', name: 'ต.ค.' },
+  { match: /(?:พ\.?ย\.?|พฤศจิกายน|w\.?1|w\.?l|w\.?ย\.?|พ\.?1)/i, month: '11', name: 'พ.ย.' },
+  { match: /(?:ธ\.?ค\.?|ธันวาคม|5\.?A\.?|ธ\.?A\.?|5\.?ค\.?)/i, month: '12', name: 'ธ.ค.' },
+];
+
+/**
+ * Format raw noisy OCR date string into clean Thai Slip date: วันที่โอน 16 ก.ย. 2569 (10:39)
+ */
+export function formatThaiSlipDate(rawLine) {
+  if (!rawLine || typeof rawLine !== 'string') return null;
+  const text = rawLine.trim();
+
+  // Extract time if present (e.g. 10:39 or 10.39)
+  let timeStr = '';
+  const timeMatch = text.match(/([012]?[0-9])[:.]([0-5][0-9])(?::([0-5][0-9]))?/);
+  if (timeMatch) {
+    const hh = String(timeMatch[1]).padStart(2, '0');
+    const mm = String(timeMatch[2]).padStart(2, '0');
+    timeStr = ` (${hh}:${mm})`;
+  }
+
+  // 1. English month format (e.g. 16 Sep 2026)
+  const engMonthMatch = text.match(/(\d{1,2})\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})/i);
+  if (engMonthMatch) {
+    const day = String(engMonthMatch[1]).padStart(2, '0');
+    const mStr = engMonthMatch[2].toLowerCase();
+    const months = {
+      jan: 'ม.ค.', feb: 'ก.พ.', mar: 'มี.ค.', apr: 'เม.ย.',
+      may: 'พ.ค.', jun: 'มิ.ย.', jul: 'ก.ค.', aug: 'ส.ค.',
+      sep: 'ก.ย.', oct: 'ต.ค.', nov: 'พ.ย.', dec: 'ธ.ค.'
+    };
+    const monthName = months[mStr] || 'ก.ย.';
+    let year = engMonthMatch[3];
+    if (year.length === 2) {
+      year = parseInt(year, 10) > 50 ? `25${year}` : `20${year}`;
+    }
+    return `วันที่โอน ${day} ${monthName} ${year}${timeStr}`;
+  }
+
+  // 2. Numeric date format (e.g. 16/09/2569 or 16-09-2026)
+  const numDateMatch = text.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/);
+  if (numDateMatch) {
+    const day = String(numDateMatch[1]).padStart(2, '0');
+    const monthNum = String(numDateMatch[2]).padStart(2, '0');
+    let year = numDateMatch[3];
+    if (year.length === 2) {
+      year = parseInt(year, 10) > 50 ? `25${year}` : `20${year}`;
+    }
+    const foundM = THAI_MONTH_MAP.find(m => m.month === monthNum);
+    const monthName = foundM ? foundM.name : `${monthNum}`;
+    if (parseInt(monthNum, 10) >= 1 && parseInt(monthNum, 10) <= 12 && parseInt(day, 10) >= 1 && parseInt(day, 10) <= 31) {
+      return `วันที่โอน ${day} ${monthName} ${year}${timeStr}`;
+    }
+  }
+
+  // 3. Thai Month with OCR typo tolerance (e.g. 16 n.1 69 or 16 ก.ย. 69)
+  for (const m of THAI_MONTH_MAP) {
+    const regex = new RegExp(`(\\d{1,2})\\s*${m.match.source}\\s*(\\d{2,4})?`, 'i');
+    const match = text.match(regex);
+    if (match) {
+      const day = String(match[1]).padStart(2, '0');
+      let year = match[2] || '';
+      if (year) {
+        if (year.length === 2) {
+          year = `25${year}`;
+        }
+      } else {
+        const currentYearBE = new Date().getFullYear() + 543;
+        year = `${currentYearBE}`;
+      }
+      return `วันที่โอน ${day} ${m.name} ${year}${timeStr}`;
+    }
+  }
+
+  return null;
+}
+
 const BANK_NAME_KEYWORDS = Object.keys(BANK_DISPLAY_NAMES);
 
 /**
@@ -147,13 +234,11 @@ export async function extractDetailsFromSlip(imagePath) {
         foundNames.push(cleanName);
       }
 
-      // 7. Detect Date/Time text (e.g. 19/09/2026 11:03 or 19 ก.ย. 69)
-      if (!result.dateStr && /[0-9]{1,2}\s*(?:\/|-|\.|\s)\s*(?:[0-9]{1,2}|[ก-ฮ]{2,4}\.?)\s*(?:\/|-|\.|\s)\s*[0-9]{2,4}/.test(line)) {
-        const timeMatch = line.match(/[0-9]{1,2}:[0-9]{2}/);
-        const timeStr = timeMatch ? ` (${timeMatch[0]})` : '';
-        const cleanDate = line.replace(/[^0-9a-zA-Z\u0E00-\u0E7F/.:-\s]/g, '').trim();
-        if (cleanDate.length >= 6 && cleanDate.length <= 30) {
-          result.dateStr = `วันที่โอน ${cleanDate}${!cleanDate.includes(':') ? timeStr : ''}`;
+      // 7. Detect Date/Time text
+      if (!result.dateStr) {
+        const formatted = formatThaiSlipDate(line);
+        if (formatted) {
+          result.dateStr = formatted;
         }
       }
     }
