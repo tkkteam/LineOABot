@@ -8,20 +8,34 @@ let ocrWorker = null;
 
 async function getOCRWorker() {
   if (!ocrWorker) {
-    ocrWorker = await createWorker('eng');
+    ocrWorker = await createWorker(['tha', 'eng']);
   }
   return ocrWorker;
 }
 
+const BANK_NAME_KEYWORDS = [
+  'กสิกรไทย', 'กรุงเทพ', 'กรุงไทย', 'ไทยพาณิชย์', 'กรุงศรี', 'ทหารไทย', 'ทีทีบี',
+  'ออมสิน', 'ธอส', 'ธ.ก.ส', 'เกียรตินาคิน', 'ทิสโก้', 'ซีไอเอ็มบี', 'ยูโอบี', 'แลนด์ แอนด์ เฮ้าส์',
+  'ไอซีบีซี', 'พร้อมเพย์', 'ทรูมันนี่', 'KBANK', 'SCB', 'BBL', 'KTB', 'TTB', 'BAY', 'GSB', 'KKP'
+];
+
 /**
- * Extract transfer amount, date, and account details from slip image using OCR
+ * Extract transfer amount, date, sender, and receiver details from slip image using OCR
  */
 export async function extractDetailsFromSlip(imagePath) {
   const result = {
     amount: null,
     dateStr: null,
-    accountMask: null,
-    receiverInfo: null
+    sender: {
+      name: null,
+      bank: null,
+      account: null
+    },
+    receiver: {
+      name: null,
+      bank: null,
+      account: null
+    }
   };
 
   try {
@@ -31,6 +45,9 @@ export async function extractDetailsFromSlip(imagePath) {
     
     const lines = text.split('\n');
     const amountCandidates = [];
+    const foundAccounts = [];
+    const foundBanks = [];
+    const foundNames = [];
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -59,16 +76,28 @@ export async function extractDetailsFromSlip(imagePath) {
       }
 
       // 2. Detect Masked Account (e.g. xxx-x-x2350-x or 0903855583 or x-xxxx)
-      if (!result.accountMask && /[xX*]{2,}[-xX*0-9]+/.test(line)) {
-        result.accountMask = line.match(/[xX*0-9-]+/)?.[0] || null;
+      const accMatch = line.match(/[xX*0-9-]{7,}/);
+      if (accMatch && /[xX*]/.test(accMatch[0])) {
+        foundAccounts.push(accMatch[0]);
+      } else if (/^0[689][0-9]{8}$/.test(line.replace(/[^0-9]/g, ''))) {
+        foundAccounts.push(line.replace(/[^0-9]/g, ''));
       }
 
-      // 3. Detect Phone/PromptPay (e.g. 08x-xxx-xxxx, 0903855583)
-      if (!result.receiverInfo && /^0[689][0-9]{8}$/.test(line.replace(/[^0-9]/g, ''))) {
-        result.receiverInfo = line.replace(/[^0-9]/g, '');
+      // 3. Detect Bank Name
+      const matchedBank = BANK_NAME_KEYWORDS.find(b => line.includes(b));
+      if (matchedBank) {
+        let cleanBank = line.replace(/[^ก-ฮะ-์a-zA-Z0-9\s.]/g, '').trim();
+        foundBanks.push(cleanBank);
       }
 
-      // 4. Detect Date/Time text (e.g. 19/09/2026 11:03 or 19 ก.ย. 69)
+      // 4. Detect Person / Company Name
+      const nameMatch = line.match(/(นาย|นางสาว|นาง|บจก\.|บริษัท|หจก\.|Mr\.|Mrs\.|Ms\.)\s*([\u0E01-\u0E5B\s]+)/);
+      if (nameMatch) {
+        let cleanName = nameMatch[0].trim().replace(/[^\u0E01-\u0E5B\s.]/g, '').trim();
+        foundNames.push(cleanName);
+      }
+
+      // 5. Detect Date/Time text (e.g. 19/09/2026 11:03 or 19 ก.ย. 69)
       if (!result.dateStr && /[0-9]{1,2}\s*(?:\/|-|\.|\s)\s*(?:[0-9]{1,2}|[ก-ฮ]{2,4}\.?)\s*(?:\/|-|\.|\s)\s*[0-9]{2,4}/.test(line)) {
         const timeMatch = line.match(/[0-9]{1,2}:[0-9]{2}/);
         const timeStr = timeMatch ? ` (${timeMatch[0]})` : '';
@@ -83,6 +112,19 @@ export async function extractDetailsFromSlip(imagePath) {
       amountCandidates.sort((a, b) => b.score - a.score);
       result.amount = amountCandidates[0].val;
     }
+
+    result.sender = {
+      name: foundNames[0] || null,
+      bank: foundBanks[0] || null,
+      account: foundAccounts[0] || null
+    };
+
+    result.receiver = {
+      name: foundNames[1] || null,
+      bank: foundBanks[1] || null,
+      account: foundAccounts[1] || null
+    };
+
   } catch (err) {
     logger.warn('[slipParser] OCR details extraction failed', { message: err.message });
   }
@@ -280,19 +322,28 @@ export async function parseSlipQR(imagePath) {
         logger.info(`[slipParser] QR detected on pass ${pass + 1}`, { length: qrCode.data.length });
         const decoded = decodeThaiSlipPayload(qrCode.data);
         
-        // Extract extra details via OCR (Amount, Date, Masked Account, Receiver Info)
+        // Extract extra details via OCR (Amount, Date, Sender, Receiver Info)
         const ocrDetails = await extractDetailsFromSlip(imagePath);
         if (ocrDetails) {
           if (!decoded.amount && ocrDetails.amount) {
             decoded.amount = ocrDetails.amount;
           }
           decoded.ocrDateStr = ocrDetails.dateStr;
-          decoded.senderAccount = ocrDetails.accountMask;
-          decoded.receiverAccount = ocrDetails.receiverInfo;
+          decoded.sender = {
+            name: ocrDetails.sender?.name || null,
+            bank: ocrDetails.sender?.bank || null,
+            account: ocrDetails.sender?.account || null
+          };
+          decoded.receiver = {
+            name: ocrDetails.receiver?.name || null,
+            bank: ocrDetails.receiver?.bank || null,
+            account: ocrDetails.receiver?.account || null
+          };
           logger.info('[slipParser] Details extracted from image via OCR', { 
             amount: decoded.amount, 
             date: decoded.ocrDateStr,
-            account: decoded.senderAccount 
+            sender: decoded.sender,
+            receiver: decoded.receiver
           });
         }
 

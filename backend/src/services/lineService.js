@@ -327,13 +327,13 @@ async function handleSlipImage(event) {
         const color = isWarning ? '#FF9800' : '#1DB446';
         const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ แจ้งโอนเงินสำเร็จ';
         
-        const senderName = displayName || 'ผู้โอน';
-        const senderBank = getBankName(slipData?.sendingBank);
-        const senderAcc = slipData?.senderAccount || 'xxx-x-x';
+        const senderName = slipData?.sender?.name || displayName || 'ผู้โอน';
+        const senderBank = slipData?.sender?.bank || getBankName(slipData?.sendingBank);
+        const senderAcc = slipData?.sender?.account || 'xxx-x-x';
         
-        const receiverName = 'บัญชีร้านค้า/พร้อมเพย์';
-        const receiverBank = 'บัญชีธนาคาร/พร้อมเพย์';
-        const receiverAcc = slipData?.receiverAccount || '-';
+        const receiverName = slipData?.receiver?.name || 'บัญชีรับโอน';
+        const receiverBank = slipData?.receiver?.bank || 'บัญชีธนาคาร/พร้อมเพย์';
+        const receiverAcc = slipData?.receiver?.account || '-';
 
         const refText = slipData?.transRef || 'ไม่พบรหัสอ้างอิง';
         const amountStr = slipData?.amount ? `${slipData.amount} บาท` : 'กำลังตรวจสอบ';
