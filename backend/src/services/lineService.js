@@ -360,7 +360,7 @@ async function handleSlipImage(event) {
                 {
                   type: 'text',
                   text: amountStr,
-                  size: '2xl',
+                  size: 'xxl',
                   weight: 'bold',
                   color: '#111111'
                 },
