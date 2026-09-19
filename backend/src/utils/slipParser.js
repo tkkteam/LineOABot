@@ -65,8 +65,15 @@ export async function extractDetailsFromSlip(imagePath) {
   };
 
   try {
+    // Preprocess image with sharp (upscale + grayscale + normalize) for sharp Thai text recognition
+    const preprocessedBuffer = await sharp(imagePath)
+      .resize({ width: 1400, withoutEnlargement: false })
+      .grayscale()
+      .normalize()
+      .toBuffer();
+
     const worker = await getOCRWorker();
-    const ret = await worker.recognize(imagePath);
+    const ret = await worker.recognize(preprocessedBuffer);
     const text = ret.data?.text || '';
     
     const lines = text.split('\n');
