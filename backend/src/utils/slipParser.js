@@ -14,54 +14,80 @@ async function getOCRWorker() {
 }
 
 /**
- * Extract transfer amount from slip image using OCR
+ * Extract transfer amount, date, and account details from slip image using OCR
  */
-export async function extractAmountFromImage(imagePath) {
+export async function extractDetailsFromSlip(imagePath) {
+  const result = {
+    amount: null,
+    dateStr: null,
+    accountMask: null,
+    receiverInfo: null
+  };
+
   try {
     const worker = await getOCRWorker();
     const ret = await worker.recognize(imagePath);
     const text = ret.data?.text || '';
     
     const lines = text.split('\n');
-    const candidates = [];
+    const amountCandidates = [];
     
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // 1. Detect Amount
       const matches = line.matchAll(/([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2})/g);
       for (const match of matches) {
         const val = parseFloat(match[1].replace(/,/g, ''));
-        if (isNaN(val) || val <= 0) continue; // Ignore 0.00 fee
+        if (isNaN(val) || val <= 0) continue;
         
         let score = 0;
         const context = (line + ' ' + (lines[i - 1] || '') + ' ' + (lines[i + 1] || '')).toLowerCase();
         
-        // High confidence: line contains Thai baht representation ("Un", "umn", "บาท", "baht", "thb")
         if (/[u|U][n|m|N|M]/.test(line) || /บาท|baht|thb|บ\./i.test(line)) {
           score += 10;
         }
-        
-        // Context contains amount indicators
         if (/จำนวน|amount|ยอด|transfer/i.test(context)) {
           score += 5;
         }
-        
-        // Penalize date/time lines
         if (/[0-9]{1,2}\.[0-9]{1,2}\./.test(line) && !/[u|U][n|m]/.test(line)) {
           score -= 10;
         }
         
-        candidates.push({ val, score, raw: match[1] });
+        amountCandidates.push({ val, score, raw: match[1] });
+      }
+
+      // 2. Detect Masked Account (e.g. xxx-x-x2350-x or 0903855583 or x-xxxx)
+      if (!result.accountMask && /[xX*]{2,}[-xX*0-9]+/.test(line)) {
+        result.accountMask = line.match(/[xX*0-9-]+/)?.[0] || null;
+      }
+
+      // 3. Detect Phone/PromptPay (e.g. 08x-xxx-xxxx, 0903855583)
+      if (!result.receiverInfo && /^0[689][0-9]{8}$/.test(line.replace(/[^0-9]/g, ''))) {
+        result.receiverInfo = line.replace(/[^0-9]/g, '');
+      }
+
+      // 4. Detect Date/Time text (e.g. 19/09/2026 11:03 or 19 ก.ย. 69)
+      if (!result.dateStr && /[0-9]{1,2}\s*(?:\/|-|\.|\s)\s*(?:[0-9]{1,2}|[ก-ฮ]{2,4}\.?)\s*(?:\/|-|\.|\s)\s*[0-9]{2,4}/.test(line)) {
+        const timeMatch = line.match(/[0-9]{1,2}:[0-9]{2}/);
+        const timeStr = timeMatch ? ` (${timeMatch[0]})` : '';
+        const cleanDate = line.replace(/[^0-9a-zA-Z\u0E00-\u0E7F/.:-\s]/g, '').trim();
+        if (cleanDate.length >= 6 && cleanDate.length <= 30) {
+          result.dateStr = `วันที่โอน ${cleanDate}${!cleanDate.includes(':') ? timeStr : ''}`;
+        }
       }
     }
     
-    if (candidates.length > 0) {
-      candidates.sort((a, b) => b.score - a.score);
-      return candidates[0].val;
+    if (amountCandidates.length > 0) {
+      amountCandidates.sort((a, b) => b.score - a.score);
+      result.amount = amountCandidates[0].val;
     }
   } catch (err) {
-    logger.warn('[slipParser] OCR amount extraction failed', { message: err.message });
+    logger.warn('[slipParser] OCR details extraction failed', { message: err.message });
   }
-  return null;
+
+  return result;
 }
 
 export const BANK_CODES = {
@@ -254,13 +280,20 @@ export async function parseSlipQR(imagePath) {
         logger.info(`[slipParser] QR detected on pass ${pass + 1}`, { length: qrCode.data.length });
         const decoded = decodeThaiSlipPayload(qrCode.data);
         
-        // If amount is not embedded in QR code, scan with OCR
-        if (!decoded.amount) {
-          const ocrAmount = await extractAmountFromImage(imagePath);
-          if (ocrAmount) {
-            decoded.amount = ocrAmount;
-            logger.info('[slipParser] Amount extracted from image via OCR', { amount: ocrAmount });
+        // Extract extra details via OCR (Amount, Date, Masked Account, Receiver Info)
+        const ocrDetails = await extractDetailsFromSlip(imagePath);
+        if (ocrDetails) {
+          if (!decoded.amount && ocrDetails.amount) {
+            decoded.amount = ocrDetails.amount;
           }
+          decoded.ocrDateStr = ocrDetails.dateStr;
+          decoded.senderAccount = ocrDetails.accountMask;
+          decoded.receiverAccount = ocrDetails.receiverInfo;
+          logger.info('[slipParser] Details extracted from image via OCR', { 
+            amount: decoded.amount, 
+            date: decoded.ocrDateStr,
+            account: decoded.senderAccount 
+          });
         }
 
         return {

@@ -325,18 +325,32 @@ async function handleSlipImage(event) {
 
       buildReceiptFlex = (isWarning) => {
         const color = isWarning ? '#FF9800' : '#1DB446';
-        const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ บันทึกสลิปสำเร็จ';
+        const statusText = isWarning ? '⚠️ สลิปเก่า รอยืนยัน' : '✅ แจ้งโอนเงินสำเร็จ';
         
-        const senderName = displayName || 'ผู้ส่งสลิป';
+        const senderName = displayName || 'ผู้โอน';
         const senderBank = getBankName(slipData?.sendingBank);
-        const refText = slipData?.transRef || 'ไม่พบรหัสอ้างอิง';
-        const amountStr = slipData?.amount ? `${slipData.amount} บาท` : 'รอแอดมินยืนยันยอด';
+        const senderAcc = slipData?.senderAccount || 'xxx-x-x';
         
-        let slipTsLocal = '';
-        if (slipData?.transDate) {
+        const receiverName = 'บัญชีร้านค้า/พร้อมเพย์';
+        const receiverBank = 'บัญชีธนาคาร/พร้อมเพย์';
+        const receiverAcc = slipData?.receiverAccount || '-';
+
+        const refText = slipData?.transRef || 'ไม่พบรหัสอ้างอิง';
+        const amountStr = slipData?.amount ? `${slipData.amount} บาท` : 'กำลังตรวจสอบ';
+        
+        let dateStr = slipData?.ocrDateStr || '';
+        if (!dateStr && slipData?.transDate) {
           const d = slipData.transDate;
           const formattedDate = d.length === 8 ? `${d.substring(6,8)}/${d.substring(4,6)}/${d.substring(0,4)}` : d;
-          slipTsLocal = `วันที่โอน ${formattedDate}`;
+          dateStr = `วันที่โอน ${formattedDate}`;
+        }
+        if (!dateStr) {
+          const now = new Date();
+          const d = String(now.getDate()).padStart(2, '0');
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const y = now.getFullYear();
+          const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          dateStr = `วันที่โอน ${d}/${m}/${y} (${time})`;
         }
 
         return {
@@ -360,17 +374,18 @@ async function handleSlipImage(event) {
                 {
                   type: 'text',
                   text: amountStr,
-                  size: 'xxl',
+                  size: '3xl',
                   weight: 'bold',
-                  color: '#111111'
+                  color: '#111111',
+                  margin: 'md'
                 },
-                ...(slipTsLocal ? [{
+                {
                   type: 'text',
-                  text: slipTsLocal,
+                  text: dateStr,
                   size: 'xs',
                   color: '#888888',
                   margin: 'sm'
-                }] : []),
+                },
                 {
                   type: 'separator',
                   margin: 'lg'
@@ -382,7 +397,7 @@ async function handleSlipImage(event) {
                   contents: [
                     {
                       type: 'text',
-                      text: 'ผู้ส่งสลิป',
+                      text: 'ผู้โอน',
                       color: '#888888',
                       size: 'sm',
                       flex: 1
@@ -393,7 +408,32 @@ async function handleSlipImage(event) {
                       flex: 3,
                       contents: [
                         { type: 'text', text: senderName, size: 'sm', weight: 'bold', color: '#111111' },
-                        { type: 'text', text: senderBank, size: 'xs', color: '#0070BA' }
+                        { type: 'text', text: senderBank, size: 'xs', color: '#888888' },
+                        ...(senderAcc !== 'xxx-x-x' ? [{ type: 'text', text: senderAcc, size: 'xs', color: '#888888' }] : [])
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'md',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: 'ผู้รับ',
+                      color: '#888888',
+                      size: 'sm',
+                      flex: 1
+                    },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      flex: 3,
+                      contents: [
+                        { type: 'text', text: receiverName, size: 'sm', weight: 'bold', color: '#111111' },
+                        { type: 'text', text: receiverBank, size: 'xs', color: '#888888' },
+                        ...(receiverAcc !== '-' ? [{ type: 'text', text: receiverAcc, size: 'xs', color: '#888888' }] : [])
                       ]
                     }
                   ]
@@ -426,7 +466,7 @@ async function handleSlipImage(event) {
                 },
                 {
                   type: 'text',
-                  text: 'แอดมินจะทำการตรวจสอบและอนุมัติยอดเงินนี้ในระบบ',
+                  text: 'แอดมินจะทำการตรวจสอบและอนุมัติยอดเงินนี้',
                   size: 'xxs',
                   color: '#aaaaaa',
                   wrap: true,
